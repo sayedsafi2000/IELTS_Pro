@@ -21,8 +21,11 @@ router.get('/admin/all', authenticate, requireRole('ADMIN'), async (req, res) =>
   try {
     const { testId, studentId, page = 1, limit = 20 } = req.query;
     const where = {};
-    if (testId) where.session = { testId };
-    if (studentId) where.userId = studentId;
+    if (testId || studentId) {
+      where.session = {};
+      if (testId) where.session.testId = testId;
+      if (studentId) where.session.userId = studentId;
+    }
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
     const [results, total] = await Promise.all([

@@ -13,11 +13,6 @@ router.post('/start', authenticate, [
     const errors = validationResult(req);
     if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
-    if (req.user.role === 'STUDENT') {
-      const enrollment = await req.prisma.enrollment.findFirst({ where: { userId: req.user.id, testId: req.body.testId } });
-      if (!enrollment) return res.status(403).json({ error: 'Not enrolled in this test' });
-    }
-
     const existing = await req.prisma.testSession.findFirst({
       where: { userId: req.user.id, testId: req.body.testId, status: 'IN_PROGRESS' }
     });
@@ -60,6 +55,7 @@ router.get('/:id', authenticate, async (req, res) => {
     const session = await req.prisma.testSession.findUnique({
       where: { id: req.params.id },
       include: {
+        user: { select: { id: true, name: true, email: true } },
         test: { include: { modules: { orderBy: { orderIndex: 'asc' }, include: { questions: { orderBy: { orderIndex: 'asc' } }, mediaFiles: true } } } },
         modulesSessions: {
           orderBy: { module: { orderIndex: 'asc' } },
@@ -147,7 +143,23 @@ router.post('/:id/module/:moduleId/submit', authenticate, async (req, res) => {
       await req.prisma.testSession.update({ where: { id: session.id }, data: { status: 'SUBMITTED', submittedAt: new Date() } });
       const allResults = await req.prisma.result.findUnique({ where: { sessionId: session.id } });
       if (allResults) {
-        await req.prisma.result.update({ where: { id: allResults.id }, data: { isReleased: true, releasedAt: new Date() } });
+        // Calculate overall band for practice mode
+        const { listeningBand, readingBand, writingBand, speakingBand } = allResults;
+        if (listeningBand && readingBand && writingBand && speakingBand) {
+          const overall = ((listeningBand + readingBand + writingBand + speakingBand) / 4).toFixed(1);
+          await req.prisma.result.update({ where: { id: allResults.id }, data: { overallBand: parseFloat(overall), isReleased: true, releasedAt: new Date() } });
+        } else {
+          await req.prisma.result.update({ where: { id: allResults.id }, data: { isReleased: true, releasedAt: new Date() } });
+        }
+      }
+    }
+
+    if (allSubmitted && session.mode === 'EXAM') {
+      // Auto-calculate overall when all modules submitted in EXAM mode
+      const result = await req.prisma.result.findUnique({ where: { sessionId: session.id } });
+      if (result && result.listeningBand && result.readingBand && result.writingBand && result.speakingBand) {
+        const overall = ((result.listeningBand + result.readingBand + result.writingBand + result.speakingBand) / 4).toFixed(1);
+        await req.prisma.result.update({ where: { id: result.id }, data: { overallBand: parseFloat(overall) } });
       }
     }
 
@@ -176,6 +188,26 @@ router.post('/:id/submit', authenticate, async (req, res) => {
     if (session.mode === 'PRACTICE') {
       const result = await req.prisma.result.findUnique({ where: { sessionId: session.id } });
       if (result) await req.prisma.result.update({ where: { id: result.id }, data: { isReleased: true, releasedAt: new Date() } });
+    }
+
+    // Auto-release result for EXAM mode if writing and speaking are already evaluated
+    if (session.mode === 'EXAM') {
+      const result = await req.prisma.result.findUnique({ where: { sessionId: session.id } });
+      if (result) {
+        const writingEvaluated = await req.prisma.writingSubmission.findFirst({ where: { moduleSession: { sessionId: session.id }, evaluatedAt: { not: null } } });
+        const speakingEvaluated = await req.prisma.speakingSubmission.findFirst({ where: { moduleSession: { sessionId: session.id }, evaluatedAt: { not: null } } });
+
+        // Calculate overall band if all components are evaluated
+        if (result.listeningBand && result.readingBand && result.writingBand && result.speakingBand) {
+          const overall = ((result.listeningBand + result.readingBand + result.writingBand + result.speakingBand) / 4).toFixed(1);
+          await req.prisma.result.update({ where: { id: result.id }, data: { overallBand: parseFloat(overall), isReleased: true, releasedAt: new Date() } });
+
+          // Send notification
+          await req.prisma.notification.create({
+            data: { userId: session.userId, title: 'Results Released', message: `Your results for "${session.test?.title || 'the test'}" are now available.` }
+          });
+        }
+      }
     }
 
     res.json({ message: 'Test submitted' });

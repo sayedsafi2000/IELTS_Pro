@@ -16,7 +16,7 @@ export default function AudioUploadSection({ moduleId, existingAudioUrl, existin
 
   const handleFile = (file) => {
     if (!file) return;
-    const allowed = ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/m4a', 'audio/ogg'];
+    const allowed = ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/m4a', 'audio/ogg', 'audio/webm', 'audio/x-m4a'];
     if (!allowed.includes(file.type)) {
       toast.error('Only MP3, WAV, M4A, OGG files allowed');
       return;
@@ -36,7 +36,7 @@ export default function AudioUploadSection({ moduleId, existingAudioUrl, existin
 
     const xhr = new XMLHttpRequest();
     xhr.open('POST', `/api/modules/${moduleId}/upload-audio`);
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('accessToken');
     if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
 
     xhr.upload.onprogress = (e) => {
@@ -52,7 +52,12 @@ export default function AudioUploadSection({ moduleId, existingAudioUrl, existin
         onUploadSuccess?.({ url: data.audioUrl, publicId: data.publicId });
         toast.success('Audio uploaded successfully');
       } else {
-        toast.error('Upload failed');
+        let msg = 'Upload failed';
+        try {
+          const body = JSON.parse(xhr.responseText);
+          if (body?.error) msg = body.error;
+        } catch { /* ignore */ }
+        toast.error(msg);
       }
     };
 
@@ -111,11 +116,11 @@ export default function AudioUploadSection({ moduleId, existingAudioUrl, existin
             <Upload className="w-10 h-10 text-surface-400 mx-auto mb-3" />
             <p className="text-sm font-medium text-surface-600 dark:text-surface-300">Drag & drop your audio here</p>
             <p className="text-xs text-surface-400 mt-1">or click to browse files</p>
-            <p className="text-xs text-surface-400 mt-4">Supports: MP3, WAV, M4A, OGG · Max: 100MB</p>
+            <p className="text-xs text-surface-400 mt-4">Supports: MP3, WAV, M4A, OGG, WebM · Max: 100MB</p>
           </div>
         )}
 
-        <input ref={fileInputRef} type="file" accept=".mp3,.wav,.m4a,.ogg" className="hidden" onChange={(e) => handleFile(e.target.files[0])} />
+        <input ref={fileInputRef} type="file" accept=".mp3,.wav,.m4a,.ogg,.webm" className="hidden" onChange={(e) => handleFile(e.target.files[0])} />
 
         {uploading && (
           <div className="space-y-3">

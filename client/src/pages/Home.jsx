@@ -68,7 +68,7 @@ export default function Home() {
                   Start Free Practice <span aria-hidden="true">→</span>
                 </Link>
               )}
-              <Link to="/login" className="btn-ghost bg-white/10 border border-white/20 text-white hover:bg-white/20 text-base px-6 py-3">
+              <Link to="/tests" className="btn-ghost bg-white/10 border border-white/20 text-white hover:bg-white/20 text-base px-6 py-3">
                 View Sample Test
               </Link>
             </div>
@@ -187,8 +187,8 @@ export default function Home() {
         <div className="max-w-2xl mx-auto">
           <h2 className="text-3xl font-bold mb-4">Ready to find your IELTS band?</h2>
           <p className="text-brand-100 mb-8">Start your preparation journey today. Free to register, no credit card required.</p>
-          <Link to="/register" className="inline-flex items-center gap-2 bg-white text-brand-600 font-semibold text-base px-8 py-3.5 rounded-xl hover:bg-brand-50 transition-colors shadow-lg">
-            Create Free Account <span>→</span>
+          <Link to={user ? "/tests" : "/register"} className="inline-flex items-center gap-2 bg-white text-brand-600 font-semibold text-base px-8 py-3.5 rounded-xl hover:bg-brand-50 transition-colors shadow-lg">
+            {user ? 'View Available Tests' : 'Create Free Account'} <span>→</span>
           </Link>
         </div>
       </section>

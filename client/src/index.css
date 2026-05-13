@@ -17,9 +17,9 @@
 @layer components {
   .btn-primary {
     @apply inline-flex items-center gap-2 px-4 py-2.5
-           bg-gradient-to-r from-brand-600 to-brand-500
+           bg-brand-600
            text-white text-sm font-medium rounded-xl
-           shadow-soft hover:shadow-card hover:from-brand-700
+           shadow-soft hover:bg-brand-700
            active:scale-[0.98] transition-all duration-150
            focus-visible:ring-2 focus-visible:ring-brand-500
            focus-visible:ring-offset-2 outline-none
@@ -29,8 +29,8 @@
     @apply inline-flex items-center gap-2 px-4 py-2.5
            bg-white dark:bg-surface-800 border border-surface-200
            dark:border-surface-700 text-surface-700 dark:text-surface-200
-           text-sm font-medium rounded-xl shadow-soft
-           hover:bg-surface-50 dark:hover:bg-surface-700
+           text-sm font-medium rounded-xl shadow-sm
+           hover:bg-surface-100 dark:hover:bg-surface-700
            active:scale-[0.98] transition-all duration-150
            focus-visible:ring-2 focus-visible:ring-brand-500
            focus-visible:ring-offset-2 outline-none;

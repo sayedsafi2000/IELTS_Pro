@@ -45,6 +45,7 @@ export default function AdminTestEdit() {
   const [selectedModuleIdx, setSelectedModuleIdx] = useState(0)
   const [showDrawer, setShowDrawer] = useState(false)
   const [questionForm, setQuestionForm] = useState({ type: 'MULTIPLE_CHOICE', questionText: '', instructions: '', options: '', correctAnswer: '', marks: 1, section: 1 })
+  const [newTestForm, setNewTestForm] = useState({ title: '', description: '', price: 0, isPaid: false, bkashNumber: '', bankName: '', bankAccount: '' })
   const [deleteConfirm, setDeleteConfirm] = useState(null)
 
   const { data: test, isLoading } = useQuery({
@@ -54,18 +55,54 @@ export default function AdminTestEdit() {
   })
 
   const createTest = useMutation({ mutationFn: data => api.post('/tests', data), onSuccess: (res) => { toast.success('Test created'); navigate(`/admin/tests/${res.data.id}`) } })
-  const updateTest = useMutation({ mutationFn: data => api.patch(`/tests/${id}`, data), onSuccess: () => { toast.success('Test updated'); queryClient.invalidateQueries(['test', id]) } })
+  const updateTest = useMutation({
+    mutationFn: data => api.patch(`/tests/${id}`, data),
+    onSuccess: () => {
+      toast.success('Test updated')
+      queryClient.invalidateQueries(['test', id])
+    },
+    onError: (err) => {
+      toast.error(err.response?.data?.error || err.message || 'Failed to update test')
+    }
+  })
   const createModule = useMutation({ mutationFn: data => api.post('/modules', data), onSuccess: () => { toast.success('Module added'); queryClient.invalidateQueries(['test', id]) } })
   const deleteModule = useMutation({ mutationFn: mid => api.delete(`/modules/${mid}`), onSuccess: () => { toast.success('Module deleted'); queryClient.invalidateQueries(['test', id]); setSelectedModuleIdx(0) } })
-  const createQuestion = useMutation({ mutationFn: data => api.post('/questions', data), onSuccess: () => { toast.success('Question added'); queryClient.invalidateQueries(['test', id]); setShowDrawer(false); setQuestionForm({ type: 'MULTIPLE_CHOICE', questionText: '', instructions: '', options: '', correctAnswer: '', marks: 1, section: 1 }) } })
+  const createQuestion = useMutation({
+    mutationFn: data => api.post('/questions', data),
+    onSuccess: () => {
+      toast.success('Question added')
+      queryClient.invalidateQueries(['test', id])
+      setShowDrawer(false)
+      setQuestionForm({ type: 'MULTIPLE_CHOICE', questionText: '', instructions: '', options: '', correctAnswer: '', marks: 1, section: 1 })
+    },
+    onError: (err) => {
+      const msg = err.response?.data?.error
+        || err.response?.data?.errors?.map(e => e.msg || e.message).filter(Boolean).join('; ')
+        || err.message
+        || 'Failed to add question'
+      toast.error(msg)
+    }
+  })
   const deleteQuestion = useMutation({ mutationFn: qid => api.delete(`/questions/${qid}`), onSuccess: () => { toast.success('Question deleted'); queryClient.invalidateQueries(['test', id]) } })
 
   const modules = test?.modules || []
   const selectedModule = modules[selectedModuleIdx]
 
   const handleSaveTest = () => {
-    if (isNew) createTest.mutate({ title: test?.title || 'Untitled Test', description: test?.description || '', type: 'FULL', duration: 165, isPublished: false })
-    else updateTest.mutate(test)
+    if (isNew) {
+      createTest.mutate({
+        title: newTestForm.title.trim() || 'Untitled Test',
+        description: newTestForm.description.trim() || '',
+        type: 'FULL',
+        duration: 165,
+        isPublished: false,
+        price: parseFloat(newTestForm.price) || 0,
+        isPaid: newTestForm.isPaid,
+        bkashNumber: newTestForm.bkashNumber.trim() || null,
+        bankName: newTestForm.bankName.trim() || null,
+        bankAccount: newTestForm.bankAccount.trim() || null
+      })
+    } else updateTest.mutate(test)
   }
 
   const handleAddModule = (type) => {
@@ -74,17 +111,43 @@ export default function AdminTestEdit() {
   }
 
   const handleAddQuestion = () => {
-    if (!selectedModule) return
-    createQuestion.mutate({
+    if (!selectedModule?.id) {
+      toast.error('Select a module first')
+      return
+    }
+    const qText = (questionForm.questionText || '').trim()
+    if (!qText) {
+      toast.error('Enter question text')
+      return
+    }
+    const marksNum = Math.max(1, parseInt(String(questionForm.marks), 10) || 1)
+    const sectionNum = Math.max(1, parseInt(String(questionForm.section), 10) || 1)
+
+    const optionLines = (questionForm.options || '').split('\n').map(o => o.trim()).filter(Boolean)
+    const needsOptions = ['MULTIPLE_CHOICE', 'MATCHING', 'MATCHING_HEADINGS'].includes(questionForm.type)
+    if (needsOptions && optionLines.length === 0) {
+      toast.error('Add at least one option (one per line) for this question type')
+      return
+    }
+
+    const payload = {
       moduleId: selectedModule.id,
       type: questionForm.type,
-      questionText: questionForm.questionText,
-      instructions: questionForm.instructions,
-      options: questionForm.options ? JSON.stringify(questionForm.options.split('\n').map(o => o.trim()).filter(Boolean)) : null,
-      correctAnswer: questionForm.correctAnswer,
-      marks: parseInt(questionForm.marks),
-      section: parseInt(questionForm.section)
-    })
+      questionText: qText,
+      instructions: (questionForm.instructions || '').trim() || undefined,
+      marks: marksNum,
+      section: sectionNum
+    }
+
+    if (needsOptions) {
+      payload.options = optionLines
+    }
+    const ca = (questionForm.correctAnswer || '').trim()
+    if (ca) {
+      payload.correctAnswer = ca
+    }
+
+    createQuestion.mutate(payload)
   }
 
   if (isNew) {
@@ -95,13 +158,64 @@ export default function AdminTestEdit() {
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">Test Title</label>
-              <input className="input" placeholder="e.g., IELTS Academic Test - January 2026" value={test?.title || ''} onChange={e => { if (!test) return; /* noop for new */ }} />
+              <input
+                className="input"
+                placeholder="e.g., IELTS Academic Test - January 2026"
+                value={newTestForm.title}
+                onChange={e => setNewTestForm(f => ({ ...f, title: e.target.value }))}
+              />
             </div>
             <div>
               <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">Description</label>
-              <textarea className="input" rows={3} placeholder="Optional description..." />
+              <textarea
+                className="input"
+                rows={3}
+                placeholder="Optional description..."
+                value={newTestForm.description}
+                onChange={e => setNewTestForm(f => ({ ...f, description: e.target.value }))}
+              />
             </div>
-            <Button onClick={() => { const t = { title: 'Untitled Test', description: '', type: 'FULL', duration: 165, isPublished: false }; createTest.mutate(t) }} loading={createTest.isPending} className="w-full justify-center">Create Test</Button>
+
+            {/* Payment Settings */}
+            <div className="border-t border-surface-200 dark:border-surface-700 pt-4 mt-4">
+              <h3 className="text-sm font-semibold text-surface-900 dark:text-white mb-3">Payment Settings</h3>
+              <div className="space-y-4">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input type="checkbox" checked={newTestForm.isPaid} onChange={e => setNewTestForm(f => ({ ...f, isPaid: e.target.checked }))}
+                    className="w-5 h-5 rounded border-surface-300 text-brand-500 focus:ring-brand-500" />
+                  <span className="text-sm font-medium text-surface-700 dark:text-surface-300">This is a paid test</span>
+                </label>
+
+                {newTestForm.isPaid && (
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">Price (৳)</label>
+                      <input type="number" value={newTestForm.price} onChange={e => setNewTestForm(f => ({ ...f, price: e.target.value }))}
+                        className="input" placeholder="0" min="0" step="0.01" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">bKash Number (for payments)</label>
+                      <input type="text" value={newTestForm.bkashNumber} onChange={e => setNewTestForm(f => ({ ...f, bkashNumber: e.target.value }))}
+                        className="input" placeholder="01XXXXXXXXX" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">Bank Name</label>
+                        <input type="text" value={newTestForm.bankName} onChange={e => setNewTestForm(f => ({ ...f, bankName: e.target.value }))}
+                          className="input" placeholder="e.g., Dhaka Bank" />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-surface-300 mb-1.5">Bank Account</label>
+                        <input type="text" value={newTestForm.bankAccount} onChange={e => setNewTestForm(f => ({ ...f, bankAccount: e.target.value }))}
+                          className="input" placeholder="Account number" />
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+
+            <Button onClick={handleSaveTest} loading={createTest.isPending} className="w-full justify-center mt-4">Create Test</Button>
           </div>
         </Card>
       </div>
@@ -266,6 +380,11 @@ export default function AdminTestEdit() {
                   <textarea className="input" rows={3} placeholder="Enter the question..." value={questionForm.questionText} onChange={e => setQuestionForm(f => ({ ...f, questionText: e.target.value }))} />
                 </div>
 
+                <div>
+                  <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">Instructions <span className="text-surface-400 font-normal">(optional)</span></label>
+                  <textarea className="input" rows={2} placeholder="Extra instructions for the candidate..." value={questionForm.instructions} onChange={e => setQuestionForm(f => ({ ...f, instructions: e.target.value }))} />
+                </div>
+
                 {['MULTIPLE_CHOICE', 'MATCHING', 'MATCHING_HEADINGS'].includes(questionForm.type) && (
                   <div>
                     <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">Options (one per line)</label>
@@ -281,11 +400,11 @@ export default function AdminTestEdit() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">Section</label>
-                    <input type="number" className="input" min={1} value={questionForm.section} onChange={e => setQuestionForm(f => ({ ...f, section: e.target.value }))} />
+                    <input type="number" className="input" min={1} value={questionForm.section} onChange={e => setQuestionForm(f => ({ ...f, section: e.target.value === '' ? '' : Number(e.target.value) }))} />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">Marks</label>
-                    <input type="number" className="input" min={1} value={questionForm.marks} onChange={e => setQuestionForm(f => ({ ...f, marks: e.target.value }))} />
+                    <input type="number" className="input" min={1} value={questionForm.marks} onChange={e => setQuestionForm(f => ({ ...f, marks: e.target.value === '' ? '' : Number(e.target.value) }))} />
                   </div>
                 </div>
               </div>

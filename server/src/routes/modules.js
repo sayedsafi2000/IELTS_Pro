@@ -61,7 +61,27 @@ router.delete('/:id', authenticate, requireRole('ADMIN'), async (req, res) => {
   }
 });
 
-router.post('/:id/upload-audio', authenticate, requireRole('ADMIN'), uploadAudio.single('audio'), async (req, res) => {
+function uploadAudioMiddleware(req, res, next) {
+  const missing = ['CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY', 'CLOUDINARY_API_SECRET'].filter((k) => !process.env[k]);
+  if (missing.length) {
+    return res.status(503).json({
+      error: 'Audio upload is not configured. Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET on the server.',
+      code: 'CLOUDINARY_NOT_CONFIGURED'
+    });
+  }
+  uploadAudio.single('audio')(req, res, (err) => {
+    if (err) {
+      console.error('[upload-audio]', err.message || err);
+      return res.status(400).json({
+        error: err.message || 'Cloudinary rejected the upload. Check file type (MP3, WAV, M4A, OGG) and Cloudinary settings.',
+        code: 'UPLOAD_FAILED'
+      });
+    }
+    next();
+  });
+}
+
+router.post('/:id/upload-audio', authenticate, requireRole('ADMIN'), uploadAudioMiddleware, async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No audio file uploaded' });
     const url = req.file.path;
@@ -72,7 +92,8 @@ router.post('/:id/upload-audio', authenticate, requireRole('ADMIN'), uploadAudio
     });
     res.json({ audioUrl: url, publicId, module });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to upload audio' });
+    console.error('[upload-audio] db', err);
+    res.status(500).json({ error: err.message || 'Failed to save audio URL' });
   }
 });
 

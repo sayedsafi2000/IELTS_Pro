@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../services/api'
 import toast from 'react-hot-toast'
@@ -21,14 +22,21 @@ export default function AdminStudents() {
       </div>
       <div className="bg-white rounded-xl shadow-sm overflow-hidden">
         <table className="w-full">
-          <thead className="bg-gray-50"><tr><th className="px-6 py-3 text-left text-sm font-medium text-gray-500">Name</th><th className="px-6 py-3 text-left text-sm font-medium text-gray-500">Email</th><th className="px-6 py-3 text-left text-sm font-medium text-gray-500">Phone</th><th className="px-6 py-3 text-left text-sm font-medium text-gray-500">Tests</th><th className="px-6 py-3 text-left text-sm font-medium text-gray-500">Status</th><th className="px-6 py-3 text-left text-sm font-medium text-gray-500">Actions</th></tr></thead>
+          <thead className="bg-gray-50"><tr><th className="px-6 py-3 text-left text-sm font-medium text-gray-500">Name</th><th className="px-6 py-3 text-left text-sm font-medium text-gray-500">Email</th><th className="px-6 py-3 text-left text-sm font-medium text-gray-500">Phone</th><th className="px-6 py-3 text-left text-sm font-medium text-gray-500">Sessions</th><th className="px-6 py-3 text-left text-sm font-medium text-gray-500">Status</th><th className="px-6 py-3 text-left text-sm font-medium text-gray-500">Actions</th></tr></thead>
           <tbody className="divide-y">
             {data?.users?.map(s => (
               <tr key={s.id} className="hover:bg-gray-50">
                 <td className="px-6 py-4 font-medium">{s.name}</td>
                 <td className="px-6 py-4 text-sm text-gray-500">{s.email}</td>
                 <td className="px-6 py-4 text-sm text-gray-500">{s.phone || '—'}</td>
-                <td className="px-6 py-4 text-sm">{s._count?.sessions || 0}</td>
+                <td className="px-6 py-4">
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm text-gray-700 tabular-nums">{s._count?.sessions ?? 0}</span>
+                    <Link to={`/admin/sessions?student=${encodeURIComponent(s.id)}`} className="text-indigo-600 hover:text-indigo-800 text-sm font-medium">
+                      View
+                    </Link>
+                  </div>
+                </td>
                 <td className="px-6 py-4">
                   <button onClick={() => toggleStatus.mutate({ id: s.id, isActive: !s.isActive })} className={`text-xs px-3 py-1 rounded-full ${s.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{s.isActive ? 'Active' : 'Inactive'}</button>
                 </td>

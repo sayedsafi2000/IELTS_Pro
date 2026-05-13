@@ -25,7 +25,7 @@ function KPICard({ label, value, icon: Icon, color, trend }) {
 
 export default function AdminDashboard() {
   const { data: stats, isLoading: statsLoading } = useQuery({ queryKey: ['admin-stats'], queryFn: () => api.get('/admin/stats').then(r => r.data) })
-  const { data: results, isLoading: resultsLoading } = useQuery({ queryKey: ['admin-results'], queryFn: () => api.get('/results/admin/all?limit=5').then(r => r.data) })
+  const { data: results, isLoading: resultsLoading } = useQuery({ queryKey: ['admin-results'], queryFn: () => api.get('/results/admin/all?limit=30').then(r => r.data) })
   const { data: pending } = useQuery({ queryKey: ['pending-evaluations'], queryFn: async () => {
     const [w, s] = await Promise.all([api.get('/writing/pending').then(r => r.data), api.get('/speaking/pending').then(r => r.data)])
     return { writing: w, speaking: s }
@@ -37,12 +37,14 @@ export default function AdminDashboard() {
     return acc
   }, {})
 
+  const hasBandStats = bandData && Object.keys(bandData).length > 0
+
   const chartData = results?.results?.slice(0, 14).reverse().map((r, i) => ({
     day: `Day ${i + 1}`,
     band: r.overallBand || 0
   })) || []
 
-  if (statsLoading) return <div className="space-y-6"><div className="grid grid-cols-4 gap-4">{[1,2,3,4].map(i => <SkeletonCard key={i} />)}</div></div>
+  if (statsLoading) return <div className="space-y-6"><div className="grid grid-cols-2 lg:grid-cols-4 gap-4">{[1,2,3,4].map(i => <SkeletonCard key={i} />)}</div></div>
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -92,7 +94,7 @@ export default function AdminDashboard() {
               <p className="text-xs text-surface-400">Score breakdown</p>
             </div>
           </div>
-          {bandData ? (
+          {hasBandStats ? (
             <ResponsiveContainer width="100%" height={180}>
               <BarChart data={Object.entries(bandData).map(([band, count]) => ({ band, count }))} layout="vertical">
                 <XAxis type="number" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
@@ -110,8 +112,8 @@ export default function AdminDashboard() {
         <Card className="p-6 lg:col-span-2" elevated>
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold text-surface-900 dark:text-white">Recent Sessions</h3>
-            <Link to="/admin/tests" className="text-xs text-brand-500 hover:text-brand-600 flex items-center gap-1">
-              View All <ArrowRight className="w-3 h-3" />
+            <Link to="/admin/sessions" className="text-xs text-brand-500 hover:text-brand-600 flex items-center gap-1">
+              View all sessions <ArrowRight className="w-3 h-3" />
             </Link>
           </div>
           <div className="overflow-x-auto">
@@ -127,7 +129,10 @@ export default function AdminDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {results?.results?.map(r => (
+                {resultsLoading && (
+                  <tr><td colSpan={6} className="py-6"><Skeleton className="h-24 w-full rounded-xl" /></td></tr>
+                )}
+                {!resultsLoading && (results?.results?.slice(0, 8) ?? []).map(r => (
                   <tr key={r.id} className="border-b border-surface-50 dark:border-surface-800 last:border-0">
                     <td className="py-3">
                       <div className="flex items-center gap-2">
@@ -150,11 +155,11 @@ export default function AdminDashboard() {
                       <span className="text-sm font-semibold text-surface-700 dark:text-surface-300">{r.overallBand || '—'}</span>
                     </td>
                     <td className="py-3">
-                      <Link to={`/results/${r.sessionId}`} className="text-xs text-brand-500 hover:text-brand-600">View →</Link>
+                      <Link to={`/admin/sessions/${r.sessionId}`} className="text-xs text-brand-500 hover:text-brand-600">View →</Link>
                     </td>
                   </tr>
                 ))}
-                {(!results?.results || results.results.length === 0) && (
+                {!resultsLoading && (!results?.results || results.results.length === 0) && (
                   <tr><td colSpan={6} className="py-8 text-center text-sm text-surface-400">No sessions yet</td></tr>
                 )}
               </tbody>

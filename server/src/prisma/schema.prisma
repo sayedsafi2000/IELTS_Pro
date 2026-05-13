@@ -40,17 +40,22 @@ model RefreshToken {
 }
 
 model Test {
-  id          String    @id @default(uuid())
-  title       String
-  description String?
-  type        TestType  @default(FULL)
-  isPublished Boolean   @default(false)
-  duration    Int       @default(165)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  modules     Module[]
-  enrollments Enrollment[]
-  sessions    TestSession[]
+  id           String    @id @default(uuid())
+  title        String
+  description  String?
+  type         TestType  @default(FULL)
+  isPublished  Boolean   @default(false)
+  duration     Int       @default(165)
+  price        Float     @default(0)
+  bkashNumber  String?
+  bankAccount  String?
+  bankName     String?
+  isPaid       Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  modules      Module[]
+  enrollments  Enrollment[]
+  sessions     TestSession[]
 }
 
 enum TestType {
@@ -136,14 +141,25 @@ enum FileType {
 }
 
 model Enrollment {
-  id         String    @id @default(uuid())
-  userId     String
-  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  testId     String
-  test       Test      @relation(fields: [testId], references: [id], onDelete: Cascade)
-  assignedAt DateTime  @default(now())
-  dueDate    DateTime?
-  assignedBy String
+  id           String            @id @default(uuid())
+  userId       String
+  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  testId       String
+  test         Test              @relation(fields: [testId], references: [id], onDelete: Cascade)
+  status       EnrollmentStatus  @default(PENDING)
+  trxId        String?
+  paidAt       DateTime?
+  assignedAt   DateTime          @default(now())
+  dueDate      DateTime?
+  assignedBy   String?
+  approvedAt   DateTime?
+  approvedBy   String?
+}
+
+enum EnrollmentStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }
 
 model TestSession {

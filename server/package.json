@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "IELTS Mock Test Platform - Backend",
   "main": "server.js",
+  "prisma": {
+    "schema": "src/prisma/schema.prisma"
+  },
   "scripts": {
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",

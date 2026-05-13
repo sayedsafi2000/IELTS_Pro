@@ -14,8 +14,7 @@ const audioStorage = new CloudinaryStorage({
   params: {
     folder: 'ielts/audio',
     resource_type: 'video',
-    allowed_formats: ['mp3', 'wav', 'm4a', 'ogg'],
-    transformation: [{ quality: 'auto' }],
+    allowed_formats: ['mp3', 'wav', 'm4a', 'ogg', 'webm'],
   },
 });
 
@@ -25,7 +24,6 @@ const imageStorage = new CloudinaryStorage({
     folder: 'ielts/images',
     resource_type: 'image',
     allowed_formats: ['jpg', 'jpeg', 'png', 'webp'],
-    transformation: [{ quality: 'auto', fetch_format: 'auto' }],
   },
 });
 

@@ -19,7 +19,10 @@ import AdminTests from './pages/AdminTests'
 import AdminTestEdit from './pages/AdminTestEdit'
 import AdminStudents from './pages/AdminStudents'
 import AdminEnroll from './pages/AdminEnroll'
+import EnrollTests from './pages/EnrollTests'
+import AdminEnrollments from './pages/AdminEnrollments'
 import AdminEvaluate from './pages/AdminEvaluate'
+import AdminSessions from './pages/AdminSessions'
 import { PageLoader } from './components/SharedComponents'
 
 function RequireAuth({ role, children }) {
@@ -60,6 +63,9 @@ export default function App() {
         <Route path="/profile" element={<RequireAuth><StudentLayout /></RequireAuth>}>
           <Route index element={<Profile />} />
         </Route>
+        <Route path="/enroll" element={<RequireAuth role="STUDENT"><StudentLayout /></RequireAuth>}>
+          <Route index element={<EnrollTests />} />
+        </Route>
         <Route path="/notifications" element={<RequireAuth><StudentLayout /></RequireAuth>}>
           <Route index element={<Notifications />} />
         </Route>
@@ -69,8 +75,11 @@ export default function App() {
           <Route path="tests/new" element={<AdminTestEdit />} />
           <Route path="tests/:id" element={<AdminTestEdit />} />
           <Route path="students" element={<AdminStudents />} />
+          <Route path="enrollments" element={<AdminEnrollments />} />
           <Route path="enroll" element={<AdminEnroll />} />
           <Route path="evaluate" element={<AdminEvaluate />} />
+          <Route path="sessions" element={<AdminSessions />} />
+          <Route path="sessions/:sessionId" element={<ResultDetail />} />
         </Route>
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>

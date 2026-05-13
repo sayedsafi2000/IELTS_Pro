@@ -1,6 +1,7 @@
 import { Outlet, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import ThemeToggle from './ui/ThemeToggle'
+import { LogOut } from 'lucide-react'
 
 export default function Layout() {
   const { user, logout } = useAuth()
@@ -26,7 +27,14 @@ export default function Layout() {
           <div className="flex items-center gap-2">
             <ThemeToggle />
             {user ? (
-              <button onClick={logout} className="btn-ghost text-sm">Logout</button>
+              <>
+                <Link to="/tests" className="btn-ghost text-sm">Sample Tests</Link>
+                <Link to="/dashboard" className="btn-primary text-sm">Dashboard</Link>
+                <button onClick={logout} className="btn-ghost text-sm flex items-center gap-1.5">
+                  <LogOut className="w-3.5 h-3.5" />
+                  Logout
+                </button>
+              </>
             ) : (
               <>
                 <Link to="/login" className="btn-ghost text-sm">Login</Link>

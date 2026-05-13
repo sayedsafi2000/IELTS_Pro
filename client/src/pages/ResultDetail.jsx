@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
-import { useParams } from 'react-router-dom'
+import { Link, useParams, useLocation } from 'react-router-dom'
 import { clsx } from 'clsx'
 import api from '../services/api'
+import { useAuth } from '../context/AuthContext'
 import Card from '../components/ui/Card'
 import Badge from '../components/ui/Badge'
 import BandGauge from '../components/ui/BandGauge'
@@ -12,11 +13,16 @@ import { CheckCircle, XCircle, Lock } from 'lucide-react'
 
 export default function ResultDetail() {
   const { sessionId } = useParams()
+  const { user } = useAuth()
+  const location = useLocation()
+  const isAdminView = user?.role === 'ADMIN' && location.pathname.startsWith('/admin/sessions')
   const { data: result, isLoading } = useQuery({ queryKey: ['result', sessionId], queryFn: () => api.get(`/results/session/${sessionId}`).then(r => r.data) })
   const { data: session } = useQuery({ queryKey: ['session', sessionId], queryFn: () => api.get(`/sessions/${sessionId}`).then(r => r.data) })
 
   if (isLoading) return <div className="min-h-[50vh] flex items-center justify-center"><Spinner size="lg" className="text-brand-500" /></div>
   if (!result) return <div className="text-center py-20"><p className="text-surface-400">Result not found or not released yet.</p></div>
+
+  const showFullBreakdown = result.isReleased || isAdminView
 
   const modules = session?.modulesSessions || []
   const getModule = (type) => session?.test?.modules?.find(m => m.type === type)
@@ -40,21 +46,38 @@ export default function ResultDetail() {
 
   return (
     <div className="space-y-6 animate-fade-in">
+      {isAdminView && (
+        <div className="flex flex-wrap items-center gap-3">
+          <Link to="/admin/sessions" className="text-sm font-medium text-brand-500 hover:text-brand-600">
+            ← All sessions
+          </Link>
+          <span className="text-surface-300 dark:text-surface-600">|</span>
+          <Link to="/admin/evaluate" className="text-sm font-medium text-surface-500 hover:text-brand-500">
+            Evaluate writing & speaking
+          </Link>
+        </div>
+      )}
       {/* Hero */}
       <Card className="p-8" elevated>
         <div className="flex flex-col md:flex-row items-center gap-8">
           <BandGauge score={result.overallBand} size={180} />
           <div className="flex-1 text-center md:text-left">
             <h1 className="text-2xl font-bold text-surface-900 dark:text-white mb-1">{session?.test?.title || 'Test Result'}</h1>
+            {isAdminView && session?.user && (
+              <p className="text-sm text-surface-500 dark:text-surface-400 mb-2">
+                Student: <span className="font-medium text-surface-700 dark:text-surface-300">{session.user.name}</span>
+                {session.user.email ? ` · ${session.user.email}` : ''}
+              </p>
+            )}
             <p className="text-sm text-surface-400 mb-4">Completed on {new Date(session?.submittedAt || session?.startedAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
             <Badge variant={result.isReleased ? 'success' : 'warning'}>
-              {result.isReleased ? 'Released' : 'Pending Evaluation'}
+              {result.isReleased ? 'Released' : isAdminView ? 'Not released to student' : 'Pending Evaluation'}
             </Badge>
           </div>
         </div>
       </Card>
 
-      {!result.isReleased ? (
+      {!showFullBreakdown ? (
         <Card className="p-12 text-center">
           <div className="w-16 h-16 rounded-2xl bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center mx-auto mb-4">
             <Lock className="w-8 h-8 text-amber-500" />
@@ -151,7 +174,7 @@ export default function ResultDetail() {
                             <tr className="border-b border-surface-100 dark:border-surface-700">
                               <th className="text-left section-label pb-3 pr-4">#</th>
                               <th className="text-left section-label pb-3 pr-4">Question</th>
-                              <th className="text-left section-label pb-3 pr-4">Your Answer</th>
+                              <th className="text-left section-label pb-3 pr-4">{isAdminView ? 'Student answer' : 'Your Answer'}</th>
                               <th className="text-left section-label pb-3 pr-4">Correct</th>
                               <th className="text-left section-label pb-3">Result</th>
                             </tr>

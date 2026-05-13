@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { clsx } from 'clsx'
-import { useParams, useNavigate } from 'react-router-dom'
+import { Link, useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
@@ -92,57 +92,88 @@ function QuestionRenderer({ question, answer, onChange, readOnly, showAnswer }) 
   const renderResult = () => {
     if (!showAnswer || !correct) return null
     const isCorrect = value.trim().toLowerCase() === correct.toString().trim().toLowerCase()
-    return <span className="ml-2 text-sm font-bold text-green-500">{isCorrect ? 'Correct' : `Answer: ${correct}`}</span>
+    return (
+      <div className={clsx('mt-3 p-3 rounded-xl border', isCorrect ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-700')}>
+        <span className="font-semibold">{isCorrect ? '✓ Correct!' : `✗ Correct Answer: ${correct}`}</span>
+      </div>
+    )
+  }
+
+  const getQuestionInstructions = (type) => {
+    switch (type) {
+      case 'MULTIPLE_CHOICE': return 'Select the best answer from the options below.'
+      case 'TRUE_FALSE_NG': return 'Decide if the statement is True, False, or Not Given based on the passage.'
+      case 'FILL_BLANK': return 'Type the correct answer in the blank space.'
+      case 'SHORT_ANSWER': return 'Write a brief, concise answer.'
+      case 'SENTENCE_COMPLETION': return 'Complete the sentence with the correct word or phrase from the passage.'
+      case 'MATCHING': return 'Match each item with its corresponding answer from the list.'
+      case 'MATCHING_HEADINGS': return 'Select the most suitable heading for each paragraph from the options given.'
+      default: return ''
+    }
   }
 
   switch (question.type) {
     case 'MULTIPLE_CHOICE': {
       const options = typeof question.options === 'string' ? JSON.parse(question.options) : question.options || []
       return (
-        <div className="space-y-2">
+        <div className="space-y-3">
           {options.map((opt, i) => {
             const isSelected = value === opt[0]
             const isCorrectOpt = showAnswer && correct === opt[0]
             return (
               <label key={i} className={clsx(
-                'flex items-center gap-3 p-4 border-2 border-surface-200 dark:border-surface-600 rounded-xl cursor-pointer transition-all min-h-[52px]',
-                isSelected && !showAnswer ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/20 shadow-glow' : '',
-                showAnswer && isCorrectOpt ? 'border-green-500 bg-green-50 dark:bg-green-900/20' : '',
-                showAnswer && isSelected && !isCorrectOpt ? 'border-red-500 bg-red-50 dark:bg-red-900/20' : '',
-                !isSelected ? 'hover:border-brand-300 hover:bg-brand-50/30 dark:hover:bg-brand-900/10' : ''
+                'flex items-center gap-4 p-4 rounded-xl cursor-pointer transition-all min-h-[56px]',
+                isSelected && !showAnswer ? 'bg-brand-50 dark:bg-brand-900/20 border-2 border-brand-500 shadow-sm' : '',
+                showAnswer && isCorrectOpt ? 'bg-green-50 dark:bg-green-900/20 border-2 border-green-500' : '',
+                showAnswer && isSelected && !isCorrectOpt ? 'bg-red-50 dark:bg-red-900/20 border-2 border-red-500' : '',
+                !isSelected && !showAnswer ? 'border-2 border-surface-200 dark:border-surface-600 hover:border-brand-300 hover:bg-surface-50 dark:hover:bg-surface-800' : 'border-2 border-transparent'
               )}>
-                <span className="w-8 h-8 rounded-full border-2 flex items-center justify-center text-sm font-medium shrink-0"
-                  style={{ borderColor: isSelected ? '#6366f1' : undefined, background: isSelected ? '#6366f1' : undefined, color: isSelected ? 'white' : undefined }}>
+                <span className={clsx(
+                  'w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0 transition-all',
+                  isSelected && !showAnswer ? 'bg-brand-500 text-white' : '',
+                  showAnswer && isCorrectOpt ? 'bg-green-500 text-white' : '',
+                  showAnswer && isSelected && !isCorrectOpt ? 'bg-red-500 text-white' : '',
+                  !isSelected && !showAnswer ? 'bg-surface-100 dark:bg-surface-700 text-surface-500' : ''
+                )}>
                   {String.fromCharCode(65 + i)}
                 </span>
-                <span className="text-surface-700 dark:text-surface-300">{opt}</span>
-                {showAnswer && isCorrectOpt && <span className="ml-auto text-green-500 font-bold text-lg">✓</span>}
+                <span className="text-surface-700 dark:text-surface-300 flex-1">{opt}</span>
+                {showAnswer && isCorrectOpt && <span className="text-green-500 font-bold text-xl">✓</span>}
               </label>
             )
           })}
+          {renderResult()}
         </div>
       )
     }
     case 'TRUE_FALSE_NG':
       return (
-        <div className="flex gap-3">
+        <div className="space-y-3">
           {['True', 'False', 'Not Given'].map(opt => (
             <label key={opt} className={clsx(
-              'flex-1 p-4 border-2 border-surface-200 dark:border-surface-600 rounded-xl cursor-pointer text-center font-medium transition-all min-h-[52px] flex items-center justify-center',
-              value === opt ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/20 text-brand-700' : 'hover:border-brand-300'
+              'flex-1 p-4 rounded-xl cursor-pointer text-center font-medium transition-all min-h-[56px] flex items-center justify-center border-2',
+              value === opt ? 'bg-brand-50 dark:bg-brand-900/20 border-brand-500 text-brand-700' : 'border-surface-200 dark:border-surface-600 hover:border-brand-300 bg-surface-50 dark:bg-surface-800'
             )}>
               <input type="radio" checked={value === opt} onChange={() => onChange(opt)} disabled={readOnly} className="sr-only" />
-              {opt}
+              <span className="font-semibold">{opt}</span>
             </label>
           ))}
+          {renderResult()}
         </div>
       )
     case 'FILL_BLANK':
     case 'SHORT_ANSWER':
     case 'SENTENCE_COMPLETION':
       return (
-        <div>
-          <input type="text" value={value} onChange={e => onChange(e.target.value)} disabled={readOnly} placeholder="Type your answer..." className="input" />
+        <div className="space-y-3">
+          <input
+            type="text"
+            value={value}
+            onChange={e => onChange(e.target.value)}
+            disabled={readOnly}
+            placeholder={question.type === 'FILL_BLANK' ? 'Enter your answer...' : 'Type your answer here...'}
+            className="input text-base py-3"
+          />
           {renderResult()}
         </div>
       )
@@ -150,28 +181,42 @@ function QuestionRenderer({ question, answer, onChange, readOnly, showAnswer }) 
     case 'MATCHING_HEADINGS': {
       const items = typeof question.options === 'string' ? JSON.parse(question.options) : question.options || []
       return (
-        <div className="space-y-2">
-          {items.map((item, i) => (
-            <div key={i} className="flex items-center gap-4 p-3 bg-surface-50 dark:bg-surface-800/50 rounded-xl">
-              <span className="font-medium w-6 shrink-0 text-surface-400">{i + 1}.</span>
-              <span className="text-surface-700 dark:text-surface-300 text-sm flex-1">{item}</span>
-              <select value={(() => { try { return JSON.parse(value || '{}')[i] || '' } catch { return '' } })()}
-                onChange={e => {
-                  const v = JSON.parse(value || '{}')
-                  v[i] = e.target.value
-                  onChange(JSON.stringify(v))
-                }}
-                disabled={readOnly} className="input w-auto min-w-[80px]">
-                <option value="">—</option>
-                {['A', 'B', 'C', 'D', 'E', 'F'].map(o => <option key={o} value={o}>{o}</option>)}
-              </select>
-            </div>
-          ))}
+        <div className="space-y-3">
+          {items.map((item, i) => {
+            const currentVal = (() => {
+              try { return JSON.parse(value || '{}')[i] || '' } catch { return '' }
+            })()
+            return (
+              <div key={i} className="flex items-center gap-4 p-4 bg-surface-50 dark:bg-surface-800/50 rounded-xl border border-surface-100 dark:border-surface-700">
+                <span className="w-8 h-8 rounded-lg bg-brand-100 dark:bg-brand-900/30 text-brand-600 dark:text-brand-400 font-bold flex items-center justify-center shrink-0 text-sm">{i + 1}</span>
+                <span className="text-surface-700 dark:text-surface-300 text-sm flex-1">{item}</span>
+                <select
+                  value={currentVal}
+                  onChange={e => {
+                    const v = JSON.parse(value || '{}')
+                    v[i] = e.target.value
+                    onChange(JSON.stringify(v))
+                  }}
+                  disabled={readOnly}
+                  className="input w-auto min-w-[100px] py-2"
+                >
+                  <option value="">Select...</option>
+                  {['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'].map(o => <option key={o} value={o}>{o}</option>)}
+                </select>
+              </div>
+            )
+          })}
+          {renderResult()}
         </div>
       )
     }
     default:
-      return <p className="text-surface-400 text-sm">Question type: {question.type}</p>
+      return (
+        <div className="p-4 bg-surface-50 dark:bg-surface-800 rounded-xl text-surface-500">
+          <p className="text-sm">Question type: {question.type}</p>
+          <input type="text" value={value} onChange={e => onChange(e.target.value)} disabled={readOnly} className="input mt-3" placeholder="Your answer..." />
+        </div>
+      )
   }
 }
 
@@ -490,7 +535,7 @@ export default function ActiveTest() {
                 </div>
                 <p className="text-lg text-surface-900 dark:text-surface-100 leading-relaxed mb-6">{questions[currentQIdx].questionText}</p>
                 <QuestionRenderer question={questions[currentQIdx]} answer={answers[questions[currentQIdx]?.id]} onChange={val => handleAnswerChange(questions[currentQIdx].id, val)} readOnly={currentModule?.status === 'SUBMITTED'} showAnswer={showAnswer} />
-                {!currentModule?.status === 'SUBMITTED' && (
+                {!currentModule?.status || currentModule?.status !== 'SUBMITTED' && (
                   <button onClick={() => handleFlag(questions[currentQIdx].id)} className="mt-4 text-sm text-surface-500 hover:text-amber-500 flex items-center gap-1">
                     <Flag className="w-3.5 h-3.5" /> {answers[questions[currentQIdx].id]?.isFlagged ? 'Unflag' : 'Flag for review'}
                   </button>
@@ -532,7 +577,7 @@ export default function ActiveTest() {
       {/* Bottom Bar */}
       <div className="h-16 bg-white dark:bg-surface-800 border-t border-surface-200 dark:border-surface-700 flex items-center justify-between px-5 shrink-0">
         <div className="flex items-center gap-2">
-          {!currentModule?.status === 'SUBMITTED' && (
+          {(!currentModule?.status || currentModule?.status !== 'SUBMITTED') && (
             <button onClick={() => handleFlag(questions[currentQIdx]?.id)} className="btn-ghost text-sm">
               <Flag className={clsx('w-4 h-4', answers[questions[currentQIdx]?.id]?.isFlagged && 'text-amber-500 fill-amber-500')} />
               {answers[questions[currentQIdx]?.id]?.isFlagged ? 'Flagged' : 'Flag'}

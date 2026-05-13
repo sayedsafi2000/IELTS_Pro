@@ -3,10 +3,11 @@ import { useAuth } from '../context/AuthContext'
 import { clsx } from 'clsx'
 import ThemeToggle from './ui/ThemeToggle'
 import Avatar from './ui/Avatar'
-import { LayoutDashboard, FileText, Users, UserPlus, ClipboardCheck, BarChart2, TrendingUp, LogOut, Bell } from 'lucide-react'
+import { LayoutDashboard, FileText, Users, UserPlus, ClipboardCheck, ScrollText, LogOut, Bell } from 'lucide-react'
 
 const mainNav = [
   { path: '/admin', label: 'Dashboard', icon: LayoutDashboard },
+  { path: '/admin/sessions', label: 'Sessions', icon: ScrollText },
   { path: '/admin/tests', label: 'Tests', icon: FileText },
   { path: '/admin/students', label: 'Students', icon: Users },
   { path: '/admin/enroll', label: 'Enrollments', icon: UserPlus },
@@ -21,6 +22,22 @@ export default function AdminLayout() {
   const location = useLocation()
 
   const isActive = (path) => location.pathname === path || (path !== '/admin' && location.pathname.startsWith(path))
+
+  const headerTitle = (() => {
+    const p = location.pathname.replace(/\/$/, '')
+    const parts = p.split('/').filter(Boolean)
+    if (parts.length <= 1) return 'Dashboard'
+    const section = parts[1]
+    if (section === 'sessions' && parts[2]) return 'Session result'
+    if (section === 'sessions') return 'Test sessions'
+    if (section === 'tests' && parts[2] === 'new') return 'New test'
+    if (section === 'tests' && parts[2]) return 'Edit test'
+    if (section === 'tests') return 'Tests'
+    if (section === 'students') return 'Students'
+    if (section === 'enroll') return 'Enrollments'
+    if (section === 'evaluate') return 'Evaluate'
+    return section.replace(/-/g, ' ')
+  })()
 
   return (
     <div className="min-h-screen bg-surface-50 dark:bg-surface-900 flex">
@@ -89,7 +106,7 @@ export default function AdminLayout() {
         <header className="h-16 bg-white/80 dark:bg-surface-800/80 backdrop-blur-md border-b border-surface-200 dark:border-surface-700 flex items-center justify-between px-6 sticky top-0 z-20">
           <div className="flex items-center gap-2">
             <h2 className="text-lg font-semibold text-surface-900 dark:text-white capitalize">
-              {location.pathname === '/admin' ? 'Dashboard' : location.pathname.split('/').pop().replace(/-/g, ' ')}
+              {headerTitle}
             </h2>
           </div>
           <div className="flex items-center gap-2">
