@@ -23,11 +23,14 @@ model User {
   enrollments  Enrollment[]
   notifications Notification[]
   refreshTokens RefreshToken[]
+  examinerLiveSessions LiveSpeakingSession[] @relation("ExaminerLiveSessions")
+  integrations ExaminerIntegration[]
 }
 
 enum Role {
   STUDENT
   ADMIN
+  EXAMINER
 }
 
 model RefreshToken {
@@ -77,9 +80,12 @@ model Module {
   orderIndex          Int
   audioUrl            String?
   cloudinaryPublicId  String?
+  speakingMode        SpeakingMode @default(RECORDED)
   questions           Question[]
   mediaFiles          MediaFile[]
   sessions            ModuleSession[]
+
+  @@unique([testId, type])
 }
 
 enum ModuleType {
@@ -87,6 +93,11 @@ enum ModuleType {
   READING
   WRITING
   SPEAKING
+}
+
+enum SpeakingMode {
+  RECORDED
+  LIVE
 }
 
 model Question {
@@ -105,6 +116,7 @@ model Question {
   orderIndex     Int
   section        Int           @default(1)
   answers        Answer[]
+  speakingResponses SpeakingResponse[]
 }
 
 enum QuestionType {
@@ -116,6 +128,13 @@ enum QuestionType {
   MATCHING_HEADINGS
   SENTENCE_COMPLETION
   DIAGRAM_LABELING
+  FORM_COMPLETION
+  NOTE_COMPLETION
+  TABLE_COMPLETION
+  FLOW_CHART_COMPLETION
+  SUMMARY_COMPLETION
+  MAP_LABELING
+  PLAN_LABELING
   WRITING_TASK1
   WRITING_TASK2
   SPEAKING_PART1
@@ -203,11 +222,13 @@ model ModuleSession {
   answers            Answer[]
   writingSubmissions WritingSubmission[]
   speakingSubmission SpeakingSubmission?
+  liveSpeakingSession LiveSpeakingSession?
 }
 
 enum ModuleSessionStatus {
   NOT_STARTED
   IN_PROGRESS
+  AWAITING_LIVE
   SUBMITTED
 }
 
@@ -245,7 +266,7 @@ model SpeakingSubmission {
   id                 String        @id @default(uuid())
   moduleSessionId    String        @unique
   moduleSession      ModuleSession @relation(fields: [moduleSessionId], references: [id], onDelete: Cascade)
-  audioUrl           String
+  audioUrl           String?
   audioPublicId      String?
   duration           Int?
   fluencyCoherence   Float?
@@ -256,6 +277,75 @@ model SpeakingSubmission {
   feedback           String?       @db.Text
   evaluatedBy        String?
   evaluatedAt        DateTime?
+  responses          SpeakingResponse[]
+}
+
+model SpeakingResponse {
+  id            String              @id @default(uuid())
+  submissionId  String
+  submission    SpeakingSubmission  @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  questionId    String
+  question      Question            @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  audioUrl      String
+  audioPublicId String?
+  duration      Int?
+  recordedAt    DateTime            @default(now())
+
+  @@unique([submissionId, questionId])
+}
+
+model LiveSpeakingSession {
+  id                 String   @id @default(uuid())
+  moduleSessionId    String   @unique
+  moduleSession      ModuleSession @relation(fields: [moduleSessionId], references: [id], onDelete: Cascade)
+  examinerId         String?
+  examiner           User?    @relation("ExaminerLiveSessions", fields: [examinerId], references: [id], onDelete: SetNull)
+  scheduledAt        DateTime
+  durationMins       Int      @default(15)
+  meetingUrl         String?
+  meetingProvider    MeetingProvider @default(GOOGLE_MEET)
+  meetingExternalId  String?
+  recordingUrl       String?
+  recordingPublicId  String?
+  status             LiveSessionStatus @default(REQUESTED)
+  studentPreferredAt DateTime?
+  notes              String?  @db.Text
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([examinerId, scheduledAt])
+  @@index([status])
+}
+
+enum MeetingProvider {
+  GOOGLE_MEET
+  ZOOM
+  OTHER
+}
+
+enum LiveSessionStatus {
+  REQUESTED
+  SCHEDULED
+  RESCHEDULED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+model ExaminerIntegration {
+  id                   String   @id @default(uuid())
+  userId               String
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider             MeetingProvider
+  accessToken          String   @db.Text
+  refreshToken         String?  @db.Text
+  expiresAt            DateTime?
+  scope                String?  @db.Text
+  externalAccountEmail String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@unique([userId, provider])
 }
 
 model Result {
@@ -279,5 +369,19 @@ model Notification {
   title     String
   message   String
   isRead    Boolean  @default(false)
+  type      NotificationType? @default(GENERIC)
+  link      String?
+  meta      Json?
   createdAt DateTime @default(now())
+}
+
+enum NotificationType {
+  GENERIC
+  LIVE_SPEAKING_REQUESTED
+  LIVE_SPEAKING_SCHEDULED
+  LIVE_SPEAKING_RESCHEDULED
+  LIVE_SPEAKING_CANCELLED
+  LIVE_SPEAKING_REMINDER
+  RESULT_RELEASED
+  ENROLLMENT_UPDATE
 }

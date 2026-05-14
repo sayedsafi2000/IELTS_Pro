@@ -1,0 +1,64 @@
+# Dependencies
+node_modules/
+**/node_modules/
+.pnpm-store/
+
+# Build output
+dist/
+build/
+out/
+**/dist/
+**/build/
+
+# Vite / bundler cache
+.vite/
+**/.vite/
+
+# Prisma generated client (rebuilt from schema)
+**/.prisma/
+
+# Environment / secrets
+.env
+.env.local
+.env.*.local
+*.pem
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Test / coverage
+coverage/
+.nyc_output/
+*.lcov
+
+# Uploads
+server/uploads/
+
+# OS junk
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# IDE / editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*.sublime-workspace
+*.sublime-project
+
+# Misc
+.cache/
+.tmp/
+tmp/
+*.tmp
+
+# PostgreSQL backups
+*.dump
+*.sql.gz

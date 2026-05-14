@@ -23,13 +23,24 @@ import EnrollTests from './pages/EnrollTests'
 import AdminEnrollments from './pages/AdminEnrollments'
 import AdminEvaluate from './pages/AdminEvaluate'
 import AdminSessions from './pages/AdminSessions'
+import AdminLiveSpeaking from './pages/AdminLiveSpeaking'
+import MyLiveSpeaking from './pages/MyLiveSpeaking'
+import ExaminerLayout from './components/ExaminerLayout'
+import ExaminerDashboard from './pages/ExaminerDashboard'
+import ExaminerIntegrations from './pages/ExaminerIntegrations'
 import { PageLoader } from './components/SharedComponents'
 
 function RequireAuth({ role, children }) {
   const { user, loading } = useAuth()
   if (loading) return <PageLoader />
   if (!user) return <Navigate to="/login" />
-  if (role && user.role !== role) return <Navigate to={user.role === 'ADMIN' ? '/admin' : '/dashboard'} />
+  if (role) {
+    const roles = Array.isArray(role) ? role : [role]
+    if (!roles.includes(user.role)) {
+      const fallback = user.role === 'ADMIN' ? '/admin' : user.role === 'EXAMINER' ? '/examiner' : '/dashboard'
+      return <Navigate to={fallback} />
+    }
+  }
   return children
 }
 
@@ -69,6 +80,14 @@ export default function App() {
         <Route path="/notifications" element={<RequireAuth><StudentLayout /></RequireAuth>}>
           <Route index element={<Notifications />} />
         </Route>
+        <Route path="/my-speaking" element={<RequireAuth role="STUDENT"><StudentLayout /></RequireAuth>}>
+          <Route index element={<MyLiveSpeaking />} />
+        </Route>
+        <Route path="/examiner" element={<RequireAuth role="EXAMINER"><ExaminerLayout /></RequireAuth>}>
+          <Route index element={<ExaminerDashboard />} />
+          <Route path="evaluate" element={<AdminEvaluate />} />
+          <Route path="integrations" element={<ExaminerIntegrations />} />
+        </Route>
         <Route path="/admin" element={<RequireAuth role="ADMIN"><AdminLayout /></RequireAuth>}>
           <Route index element={<AdminDashboard />} />
           <Route path="tests" element={<AdminTests />} />
@@ -80,6 +99,7 @@ export default function App() {
           <Route path="evaluate" element={<AdminEvaluate />} />
           <Route path="sessions" element={<AdminSessions />} />
           <Route path="sessions/:sessionId" element={<ResultDetail />} />
+          <Route path="live-speaking" element={<AdminLiveSpeaking />} />
         </Route>
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>

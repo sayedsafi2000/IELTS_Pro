@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import toast from 'react-hot-toast'
 
@@ -11,7 +11,7 @@ export default function Login() {
   const navigate = useNavigate()
 
   if (user) {
-    navigate(user.role === 'ADMIN' ? '/admin' : '/dashboard')
+    navigate(user.role === 'ADMIN' ? '/admin' : user.role === 'EXAMINER' ? '/examiner' : '/dashboard')
     return null
   }
 
@@ -21,7 +21,7 @@ export default function Login() {
     try {
       const user = await login(email, password)
       toast.success(`Welcome back, ${user.name}!`)
-      navigate(user.role === 'ADMIN' ? '/admin' : '/dashboard')
+      navigate(user.role === 'ADMIN' ? '/admin' : user.role === 'EXAMINER' ? '/examiner' : '/dashboard')
     } catch (err) {
       toast.error(err.response?.data?.error || 'Login failed')
     } finally { setLoading(false) }

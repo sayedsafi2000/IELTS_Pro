@@ -4,22 +4,7 @@ const router = express.Router();
 const { authenticate, requireRole } = require('../middleware/auth');
 const { uploadImage } = require('../config/cloudinary');
 const { cloudinary } = require('../config/cloudinary');
-
-const QUESTION_TYPES = [
-  'MULTIPLE_CHOICE',
-  'TRUE_FALSE_NG',
-  'FILL_BLANK',
-  'SHORT_ANSWER',
-  'MATCHING',
-  'MATCHING_HEADINGS',
-  'SENTENCE_COMPLETION',
-  'DIAGRAM_LABELING',
-  'WRITING_TASK1',
-  'WRITING_TASK2',
-  'SPEAKING_PART1',
-  'SPEAKING_PART2',
-  'SPEAKING_PART3'
-];
+const { ALL_QUESTION_TYPES: QUESTION_TYPES, ALLOWED_BY_MODULE, isAllowed } = require('../constants/questionTypes');
 
 /** Coerce Prisma Json inputs: arrays/objects pass through; JSON strings parse; plain strings stay as strings */
 function normalizeJsonInput(value) {
@@ -58,6 +43,12 @@ router.post('/', authenticate, requireRole('ADMIN'), async (req, res) => {
     if (!module) {
       return res.status(400).json({ error: 'Module not found for this moduleId', code: 'MODULE_NOT_FOUND' });
     }
+    if (!isAllowed(module.type, type)) {
+      return res.status(400).json({
+        error: `Question type "${type}" is not allowed for ${module.type} modules. Allowed: ${ALLOWED_BY_MODULE[module.type].join(', ')}`,
+        code: 'QUESTION_TYPE_NOT_ALLOWED_FOR_MODULE'
+      });
+    }
 
     const orderIndex = await req.prisma.question.count({ where: { moduleId } });
     const marksNum = Math.max(1, Number.parseInt(String(marks ?? 1), 10) || 1);
@@ -95,10 +86,40 @@ router.post('/', authenticate, requireRole('ADMIN'), async (req, res) => {
 router.post('/bulk-import', authenticate, requireRole('ADMIN'), async (req, res) => {
   try {
     const questions = req.body.questions;
-    if (!Array.isArray(questions)) return res.status(400).json({ error: 'Questions must be an array' });
+    if (!Array.isArray(questions) || questions.length === 0) {
+      return res.status(400).json({ error: 'Questions must be a non-empty array' });
+    }
+
+    const moduleIds = [...new Set(questions.map(q => q.moduleId).filter(Boolean))];
+    if (moduleIds.length === 0) {
+      return res.status(400).json({ error: 'Every question must have a moduleId' });
+    }
+    const modules = await req.prisma.module.findMany({ where: { id: { in: moduleIds } } });
+    const typeByModule = new Map(modules.map(m => [m.id, m.type]));
+
+    const violations = [];
+    questions.forEach((q, idx) => {
+      const modType = typeByModule.get(q.moduleId);
+      if (!modType) {
+        violations.push(`Row ${idx}: moduleId not found`);
+        return;
+      }
+      if (!QUESTION_TYPES.includes(q.type)) {
+        violations.push(`Row ${idx}: invalid question type "${q.type}"`);
+        return;
+      }
+      if (!isAllowed(modType, q.type)) {
+        violations.push(`Row ${idx}: type "${q.type}" not allowed for ${modType} module`);
+      }
+    });
+    if (violations.length) {
+      return res.status(400).json({ error: 'Bulk import validation failed', details: violations.slice(0, 20) });
+    }
+
     const created = await req.prisma.question.createMany({ data: questions });
     res.json({ count: created.count });
   } catch (err) {
+    console.error('[questions bulk-import]', err);
     res.status(500).json({ error: 'Failed to import questions' });
   }
 });
@@ -115,9 +136,39 @@ router.get('/:id', authenticate, async (req, res) => {
 
 router.patch('/:id', authenticate, requireRole('ADMIN'), async (req, res) => {
   try {
-    const question = await req.prisma.question.update({ where: { id: req.params.id }, data: req.body });
+    const existing = await req.prisma.question.findUnique({
+      where: { id: req.params.id },
+      include: { module: true }
+    });
+    if (!existing) return res.status(404).json({ error: 'Question not found' });
+
+    const { type, questionText, instructions, options, correctAnswer, acceptedAnswers, marks, section, orderIndex } = req.body;
+    const data = {};
+    if (type !== undefined) {
+      if (!QUESTION_TYPES.includes(type)) {
+        return res.status(400).json({ error: `Invalid question type: ${type}`, code: 'VALIDATION' });
+      }
+      if (!isAllowed(existing.module.type, type)) {
+        return res.status(400).json({
+          error: `Question type "${type}" is not allowed for ${existing.module.type} modules. Allowed: ${ALLOWED_BY_MODULE[existing.module.type].join(', ')}`,
+          code: 'QUESTION_TYPE_NOT_ALLOWED_FOR_MODULE'
+        });
+      }
+      data.type = type;
+    }
+    if (questionText !== undefined) data.questionText = questionText;
+    if (instructions !== undefined) data.instructions = instructions;
+    if (options !== undefined) data.options = options;
+    if (correctAnswer !== undefined) data.correctAnswer = correctAnswer;
+    if (acceptedAnswers !== undefined) data.acceptedAnswers = acceptedAnswers;
+    if (marks !== undefined) data.marks = marks;
+    if (section !== undefined) data.section = section;
+    if (orderIndex !== undefined) data.orderIndex = orderIndex;
+
+    const question = await req.prisma.question.update({ where: { id: req.params.id }, data });
     res.json(question);
   } catch (err) {
+    console.error('[questions PATCH]', err);
     res.status(500).json({ error: 'Failed to update question' });
   }
 });

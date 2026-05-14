@@ -70,7 +70,7 @@ async function main() {
     { type: 'MATCHING', questionText: 'Match each person with the correct department:', options: JSON.stringify(['A. Manager', 'B. Developer', 'C. Designer']), correctAnswer: 'A', section: 2, orderIndex: 5, marks: 1 },
     { type: 'FILL_BLANK', questionText: 'The project deadline is the end of __________.', correctAnswer: 'October', section: 2, orderIndex: 6, marks: 1 },
     { type: 'SHORT_ANSWER', questionText: 'How many team members are attending the meeting?', section: 2, orderIndex: 7, marks: 1 },
-    { type: 'TRUE_FALSE_NG', questionText: 'The speaker mentions that lunch will be provided.', section: 2, orderIndex: 8, marks: 1, correctAnswer: 'True' },
+    { type: 'MULTIPLE_CHOICE', questionText: 'According to the speaker, what will be provided during the meeting?', options: JSON.stringify(['A. Lunch', 'B. Snacks only', 'C. Nothing']), correctAnswer: 'A', section: 2, orderIndex: 8, marks: 1 },
     { type: 'MULTIPLE_CHOICE', questionText: 'What is the total budget for the project?', options: JSON.stringify(['A. $50,000', 'B. $75,000', 'C. $100,000']), correctAnswer: 'C', section: 2, orderIndex: 9, marks: 1 }
   ];
 

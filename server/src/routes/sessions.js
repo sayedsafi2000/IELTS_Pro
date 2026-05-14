@@ -59,7 +59,12 @@ router.get('/:id', authenticate, async (req, res) => {
         test: { include: { modules: { orderBy: { orderIndex: 'asc' }, include: { questions: { orderBy: { orderIndex: 'asc' } }, mediaFiles: true } } } },
         modulesSessions: {
           orderBy: { module: { orderIndex: 'asc' } },
-          include: { answers: true, writingSubmissions: true, speakingSubmission: true }
+          include: {
+            answers: true,
+            writingSubmissions: true,
+            speakingSubmission: { include: { responses: { include: { question: true }, orderBy: { recordedAt: 'asc' } } } },
+            liveSpeakingSession: { include: { examiner: { select: { id: true, name: true, email: true } } } }
+          }
         },
         result: true
       }
@@ -85,8 +90,9 @@ router.post('/:id/module/:moduleId/submit', authenticate, async (req, res) => {
 
     const module = await req.prisma.module.findUnique({ where: { id: req.params.moduleId } });
     const isPractice = session.mode === 'PRACTICE';
+    const isLiveSpeaking = module.type === 'SPEAKING' && module.speakingMode === 'LIVE';
 
-    if (!isPractice && moduleSession.startedAt) {
+    if (!isPractice && !isLiveSpeaking && moduleSession.startedAt) {
       const elapsed = (Date.now() - new Date(moduleSession.startedAt).getTime()) / 1000;
       const allowed = module.durationMins * 60;
       if (elapsed > allowed) {
@@ -95,14 +101,15 @@ router.post('/:id/module/:moduleId/submit', authenticate, async (req, res) => {
     }
 
     let timeLeft = null;
-    if (!isPractice && moduleSession.startedAt) {
+    if (!isPractice && !isLiveSpeaking && moduleSession.startedAt) {
       const elapsed = Math.floor((Date.now() - new Date(moduleSession.startedAt).getTime()) / 1000);
       timeLeft = Math.max(0, module.durationMins * 60 - elapsed);
     }
 
+    const newStatus = isLiveSpeaking ? 'AWAITING_LIVE' : 'SUBMITTED';
     await req.prisma.moduleSession.update({
       where: { id: moduleSession.id },
-      data: { status: 'SUBMITTED', submittedAt: new Date(), timeLeft }
+      data: { status: newStatus, submittedAt: isLiveSpeaking ? null : new Date(), timeLeft }
     });
 
     if (module.type === 'LISTENING' || module.type === 'READING') {
@@ -138,6 +145,7 @@ router.post('/:id/module/:moduleId/submit', authenticate, async (req, res) => {
 
     const allModules = await req.prisma.moduleSession.findMany({ where: { sessionId: session.id } });
     const allSubmitted = allModules.every(m => m.status === 'SUBMITTED');
+    const anyAwaitingLive = allModules.some(m => m.status === 'AWAITING_LIVE');
 
     if (isPractice) {
       await req.prisma.testSession.update({ where: { id: session.id }, data: { status: 'SUBMITTED', submittedAt: new Date() } });
@@ -163,7 +171,7 @@ router.post('/:id/module/:moduleId/submit', authenticate, async (req, res) => {
       }
     }
 
-    res.json({ message: 'Module submitted', allModulesSubmitted: allSubmitted });
+    res.json({ message: isLiveSpeaking ? 'Module awaiting live session' : 'Module submitted', allModulesSubmitted: allSubmitted, anyAwaitingLive });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to submit module' });

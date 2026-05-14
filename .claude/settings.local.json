@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-NetTCPConnection -LocalPort 5173,5000 -ErrorAction SilentlyContinue)",
+      "Bash(Select-Object LocalPort,State,OwningProcess)",
+      "PowerShell(Get-NetTCPConnection *)",
+      "Bash(npm run *)",
+      "PowerShell($env:PGPASSWORD = 'postgres'; & 'C:\\\\Program Files\\\\PostgreSQL\\\\17\\\\bin\\\\psql.exe' -U postgres -h localhost -p 5432 -c '\\\\l' 2>&1 | Select-Object -First 20)",
+      "PowerShell(Restart-Service *)",
+      "PowerShell(& 'C:\\\\Program Files\\\\PostgreSQL\\\\17\\\\bin\\\\pg_ctl.exe' reload -D 'C:\\\\Program Files\\\\PostgreSQL\\\\17\\\\data' 2>&1)",
+      "PowerShell(& 'C:\\\\Program Files\\\\PostgreSQL\\\\17\\\\bin\\\\psql.exe' -U postgres -h localhost -p 5432 -c '\\\\conninfo' 2>&1)",
+      "PowerShell(& 'C:\\\\Program Files\\\\PostgreSQL\\\\17\\\\bin\\\\psql.exe' -U postgres -h localhost -p 5432 -c \"ALTER USER postgres WITH PASSWORD 'Postgres@2026';\" 2>&1; & 'C:\\\\Program Files\\\\PostgreSQL\\\\17\\\\bin\\\\psql.exe' -U postgres -h localhost -p 5432 -tAc \"SELECT 1 FROM pg_database WHERE datname='ielts_db';\" 2>&1)",
+      "PowerShell(& 'C:\\\\Program Files\\\\PostgreSQL\\\\17\\\\bin\\\\psql.exe' -U postgres -h localhost -p 5432 -c \"CREATE DATABASE ielts_db;\" 2>&1)",
+      "PowerShell(Copy-Item *)",
+      "PowerShell(Remove-Item *)",
+      "PowerShell($env:PGPASSWORD='Postgres@2026'; & 'C:\\\\Program Files\\\\PostgreSQL\\\\17\\\\bin\\\\psql.exe' -U postgres -h localhost -p 5432 -d ielts_db -c '\\\\conninfo' 2>&1)",
+      "Bash(Get-ChildItem -Path \"D:\\\\Personal_Projects\\\\IELTS_Pro\" -Recurse -Directory)",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "WebFetch(domain:takeielts.britishcouncil.org)",
+      "Bash(curl -sL -A \"Mozilla/5.0 \\(Windows NT 10.0; Win64; x64\\) AppleWebKit/537.36\" --max-time 30 \"https://takeielts.britishcouncil.org/take-ielts/test-format\" -o /tmp/bc.html)",
+      "Read(//tmp/**)",
+      "Bash(curl -v -L -A \"Mozilla/5.0 \\(Windows NT 10.0; Win64; x64\\) AppleWebKit/537.36\" --max-time 30 \"https://takeielts.britishcouncil.org/take-ielts/test-format\")",
+      "PowerShell($env:PGPASSWORD='Postgres@2026'; & 'C:\\\\Program Files\\\\PostgreSQL\\\\17\\\\bin\\\\psql.exe' -U postgres -h localhost -p 5432 -d ielts_db -c \"DELETE FROM \\\\`\"Module\\\\`\" WHERE id='e9d5695f-899d-4ed6-8947-5595d1099f68';\")"
+    ]
+  }
+}
