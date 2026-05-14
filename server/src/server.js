@@ -22,6 +22,8 @@ const resultRoutes = require('./routes/results');
 const enrollmentRoutes = require('./routes/enrollments');
 const adminRoutes = require('./routes/admin');
 const notificationRoutes = require('./routes/notifications');
+const liveSpeakingRoutes = require('./routes/liveSpeaking');
+const integrationsRoutes = require('./routes/integrations');
 
 const logger = winston.createLogger({
   level: 'info',
@@ -85,6 +87,8 @@ app.use('/api/results', resultRoutes);
 app.use('/api/enrollments', enrollmentRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/live-speaking', liveSpeakingRoutes);
+app.use('/api/integrations', integrationsRoutes);
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 

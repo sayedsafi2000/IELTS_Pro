@@ -5,7 +5,7 @@ import ThemeToggle from './ui/ThemeToggle'
 import Avatar from './ui/Avatar'
 import { useQuery } from '@tanstack/react-query'
 import api from '../services/api'
-import { Bell, Home, FileText, BarChart2, User, LogOut, GraduationCap, ChevronRight } from 'lucide-react'
+import { Bell, Home, FileText, BarChart2, User, LogOut, GraduationCap, ChevronRight, Video } from 'lucide-react'
 
 function NotificationBell() {
   const { data } = useQuery({ queryKey: ['notifications'], queryFn: () => api.get('/notifications').then(r => r.data) })
@@ -24,6 +24,7 @@ const navItems = [
   { path: '/dashboard', label: 'Dashboard', icon: Home },
   { path: '/enroll', label: 'Enroll Tests', icon: GraduationCap },
   { path: '/tests', label: 'My Tests', icon: FileText },
+  { path: '/my-speaking', label: 'Speaking Sessions', icon: Video },
   { path: '/results', label: 'Results', icon: BarChart2 },
   { path: '/profile', label: 'Profile', icon: User },
 ]

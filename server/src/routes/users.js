@@ -26,6 +26,23 @@ router.get('/', authenticate, requireRole('ADMIN'), async (req, res) => {
   }
 });
 
+router.get('/examiners', authenticate, requireRole('ADMIN'), async (req, res) => {
+  try {
+    const examiners = await req.prisma.user.findMany({
+      where: { role: 'EXAMINER', isActive: true },
+      orderBy: { name: 'asc' },
+      select: {
+        id: true, name: true, email: true, isActive: true, createdAt: true,
+        integrations: { select: { provider: true, externalAccountEmail: true } }
+      }
+    });
+    res.json(examiners);
+  } catch (err) {
+    console.error('[users examiners]', err);
+    res.status(500).json({ error: 'Failed to fetch examiners' });
+  }
+});
+
 router.get('/:id', authenticate, requireRole('ADMIN'), async (req, res) => {
   try {
     const user = await req.prisma.user.findUnique({

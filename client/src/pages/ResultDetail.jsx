@@ -258,13 +258,47 @@ export default function ResultDetail() {
             <Tabs.Content value="speaking">
               {modules.map(ms => {
                 const mod = getModule('SPEAKING')
-                if (mod?.type !== 'SPEAKING' || !ms.speakingSubmission) return null
+                if (mod?.type !== 'SPEAKING') return null
                 const sp = ms.speakingSubmission
+                const live = ms.liveSpeakingSession
+                const isLive = mod.speakingMode === 'LIVE'
+                if (!sp && !live) return null
                 return (
                   <Card key={ms.id} className="p-6" elevated>
-                    <h3 className="font-semibold text-surface-900 dark:text-white mb-4">{mod?.title}</h3>
-                    {sp.audioUrl && <audio src={sp.audioUrl} controls className="w-full mb-6" />}
-                    {sp.bandScore !== null ? (
+                    <h3 className="font-semibold text-surface-900 dark:text-white mb-4">
+                      {mod?.title}
+                      <span className="ml-2 text-xs font-normal text-surface-400">({mod.speakingMode || 'RECORDED'})</span>
+                    </h3>
+
+                    {isLive && live && (
+                      <div className="mb-6 p-4 bg-surface-50 dark:bg-surface-900 rounded-xl text-sm space-y-1">
+                        <p><span className="text-surface-400">Scheduled:</span> {new Date(live.scheduledAt).toLocaleString()}</p>
+                        {live.examiner && <p><span className="text-surface-400">Examiner:</span> {live.examiner.name}</p>}
+                        <p><span className="text-surface-400">Platform:</span> {live.meetingProvider?.replace('_', ' ')}</p>
+                        <p><span className="text-surface-400">Status:</span> {live.status}</p>
+                        {live.recordingUrl && (
+                          <audio src={live.recordingUrl} controls className="w-full mt-2" />
+                        )}
+                      </div>
+                    )}
+
+                    {!isLive && sp?.responses?.length > 0 && (
+                      <div className="space-y-3 mb-6">
+                        {sp.responses.map(r => (
+                          <div key={r.id} className="p-3 bg-surface-50 dark:bg-surface-900 rounded-xl">
+                            <p className="text-xs section-label mb-1">{r.question?.type?.replace(/_/g, ' ')}</p>
+                            <p className="text-sm text-surface-700 dark:text-surface-300 mb-2">{r.question?.questionText}</p>
+                            <audio src={r.audioUrl} controls className="w-full" />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {!isLive && !sp?.responses?.length && sp?.audioUrl && (
+                      <audio src={sp.audioUrl} controls className="w-full mb-6" />
+                    )}
+
+                    {sp?.bandScore != null ? (
                       <>
                         <div className="text-center mb-6">
                           <p className="section-label mb-1">Overall Band</p>

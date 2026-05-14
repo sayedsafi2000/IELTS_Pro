@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { clsx } from 'clsx'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -11,31 +11,15 @@ import Button from '../components/ui/Button'
 import Textarea from '../components/ui/Textarea'
 import ConfirmModal from '../components/ui/ConfirmModal'
 import AudioUploadSection from '../components/admin/AudioUploadSection'
+import { MODULE_TYPES, ALLOWED_BY_MODULE, QUESTION_TYPE_META, getAllowedQuestionTypes } from '../constants/questionTypes'
 import { X, Plus, Trash2, GripVertical, PenLine, Music, Grip, ChevronDown, Eye, Copy, ToggleLeft, ToggleRight, BookOpen, Headphones } from 'lucide-react'
 
-const moduleTypes = ['LISTENING', 'READING', 'WRITING', 'SPEAKING']
 const moduleColors = {
   LISTENING: 'from-blue-500 to-cyan-500',
   READING: 'from-purple-500 to-pink-500',
   WRITING: 'from-amber-500 to-orange-500',
   SPEAKING: 'from-green-500 to-emerald-500',
 }
-
-const questionTypes = [
-  { value: 'MULTIPLE_CHOICE', label: 'Multiple Choice', icon: 'A' },
-  { value: 'TRUE_FALSE_NG', label: 'True/False/NG', icon: 'T' },
-  { value: 'FILL_BLANK', label: 'Fill in Blank', icon: 'F' },
-  { value: 'SHORT_ANSWER', label: 'Short Answer', icon: 'S' },
-  { value: 'MATCHING', label: 'Matching', icon: 'M' },
-  { value: 'MATCHING_HEADINGS', label: 'Matching Headings', icon: 'H' },
-  { value: 'SENTENCE_COMPLETION', label: 'Sentence Completion', icon: 'C' },
-  { value: 'DIAGRAM_LABELING', label: 'Diagram Labeling', icon: 'D' },
-  { value: 'WRITING_TASK1', label: 'Writing Task 1', icon: '1' },
-  { value: 'WRITING_TASK2', label: 'Writing Task 2', icon: '2' },
-  { value: 'SPEAKING_PART1', label: 'Speaking Part 1', icon: 'P' },
-  { value: 'SPEAKING_PART2', label: 'Speaking Part 2', icon: 'P' },
-  { value: 'SPEAKING_PART3', label: 'Speaking Part 3', icon: 'P' },
-]
 
 export default function AdminTestEdit() {
   const { id } = useParams()
@@ -88,6 +72,20 @@ export default function AdminTestEdit() {
   const modules = test?.modules || []
   const selectedModule = modules[selectedModuleIdx]
 
+  const usedModuleTypes = useMemo(() => new Set(modules.map(m => m.type)), [modules])
+  const availableModuleTypes = useMemo(() => MODULE_TYPES.filter(t => !usedModuleTypes.has(t)), [usedModuleTypes])
+  const allowedQuestionTypes = useMemo(
+    () => (selectedModule ? getAllowedQuestionTypes(selectedModule.type) : []),
+    [selectedModule?.type]
+  )
+
+  useEffect(() => {
+    if (!selectedModule) return
+    if (!allowedQuestionTypes.includes(questionForm.type)) {
+      setQuestionForm(f => ({ ...f, type: allowedQuestionTypes[0] || 'MULTIPLE_CHOICE' }))
+    }
+  }, [selectedModule?.id])
+
   const handleSaveTest = () => {
     if (isNew) {
       createTest.mutate({
@@ -107,6 +105,10 @@ export default function AdminTestEdit() {
 
   const handleAddModule = (type) => {
     if (!id) { toast.error('Save the test first'); return }
+    if (usedModuleTypes.has(type)) {
+      toast.error(`${type} module already added to this test`)
+      return
+    }
     createModule.mutate({ testId: id, type, title: `${type} Module`, durationMins: type === 'LISTENING' ? 30 : type === 'READING' ? 60 : type === 'WRITING' ? 60 : 15 })
   }
 
@@ -266,18 +268,20 @@ export default function AdminTestEdit() {
             {mod.type}
           </button>
         ))}
-        <div className="relative group">
-          <button className="flex items-center gap-1 px-4 py-2.5 text-sm text-surface-400 hover:text-surface-600 dark:hover:text-surface-300 rounded-xl transition-colors">
-            <Plus className="w-4 h-4" /> Module
-          </button>
-          <div className="absolute top-full left-0 mt-1 bg-white dark:bg-surface-800 rounded-xl shadow-modal border border-surface-200 dark:border-surface-700 p-1 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-20 min-w-[160px]">
-            {moduleTypes.map(t => (
-              <button key={t} onClick={() => handleAddModule(t)} className="w-full text-left px-3 py-2 text-sm text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-700 rounded-lg transition-colors">
-                {t.charAt(0) + t.slice(1).toLowerCase()}
-              </button>
-            ))}
+        {availableModuleTypes.length > 0 && (
+          <div className="relative group">
+            <button className="flex items-center gap-1 px-4 py-2.5 text-sm text-surface-400 hover:text-surface-600 dark:hover:text-surface-300 rounded-xl transition-colors">
+              <Plus className="w-4 h-4" /> Module
+            </button>
+            <div className="absolute top-full left-0 mt-1 bg-white dark:bg-surface-800 rounded-xl shadow-modal border border-surface-200 dark:border-surface-700 p-1 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-20 min-w-[160px]">
+              {availableModuleTypes.map(t => (
+                <button key={t} onClick={() => handleAddModule(t)} className="w-full text-left px-3 py-2 text-sm text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-700 rounded-lg transition-colors">
+                  {t.charAt(0) + t.slice(1).toLowerCase()}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {selectedModule && (
@@ -315,6 +319,32 @@ export default function AdminTestEdit() {
                 </button>
               </div>
             </div>
+            {selectedModule.type === 'SPEAKING' && (
+              <div className="mt-4 pt-4 border-t border-surface-100 dark:border-surface-700">
+                <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">Speaking mode</label>
+                <select
+                  className="input max-w-xs"
+                  value={selectedModule.speakingMode || 'RECORDED'}
+                  onChange={async (e) => {
+                    const mode = e.target.value
+                    try {
+                      await api.patch(`/modules/${selectedModule.id}`, { speakingMode: mode })
+                      toast.success(`Speaking mode set to ${mode}`)
+                      queryClient.invalidateQueries(['test', id])
+                    } catch (err) {
+                      toast.error(err.response?.data?.error || 'Failed to update speaking mode')
+                    }
+                  }}>
+                  <option value="RECORDED">Recorded (per-question audio, async grading)</option>
+                  <option value="LIVE">Live (Google Meet / Zoom interview)</option>
+                </select>
+                <p className="text-xs text-surface-400 mt-1.5">
+                  {selectedModule.speakingMode === 'LIVE'
+                    ? 'Students request a slot. Admin schedules with an examiner. No recorder shown to student.'
+                    : 'Students record audio per question; admin grades async.'}
+                </p>
+              </div>
+            )}
           </Card>
 
           {/* Questions */}
@@ -358,20 +388,26 @@ export default function AdminTestEdit() {
               <div className="flex-1 overflow-y-auto p-6 space-y-5">
                 {/* Type Selector */}
                 <div>
-                  <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-2">Question Type</label>
+                  <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-2">
+                    Question Type
+                    <span className="text-surface-400 font-normal ml-1">({selectedModule?.type})</span>
+                  </label>
                   <div className="grid grid-cols-2 gap-2">
-                    {questionTypes.map(qt => (
-                      <button key={qt.value} onClick={() => setQuestionForm(f => ({ ...f, type: qt.value }))}
-                        className={clsx(
-                          'p-3 rounded-xl border text-left transition-all',
-                          questionForm.type === qt.value
-                            ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/20 text-brand-700 dark:text-brand-300'
-                            : 'border-surface-200 dark:border-surface-600 hover:border-brand-300 text-surface-600 dark:text-surface-400'
-                        )}>
-                        <div className="w-7 h-7 rounded-lg bg-surface-100 dark:bg-surface-700 flex items-center justify-center text-xs font-bold mb-1.5">{qt.icon}</div>
-                        <span className="text-xs font-medium">{qt.label}</span>
-                      </button>
-                    ))}
+                    {allowedQuestionTypes.map(value => {
+                      const meta = QUESTION_TYPE_META[value] || { label: value, icon: '?' }
+                      return (
+                        <button key={value} onClick={() => setQuestionForm(f => ({ ...f, type: value }))}
+                          className={clsx(
+                            'p-3 rounded-xl border text-left transition-all',
+                            questionForm.type === value
+                              ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/20 text-brand-700 dark:text-brand-300'
+                              : 'border-surface-200 dark:border-surface-600 hover:border-brand-300 text-surface-600 dark:text-surface-400'
+                          )}>
+                          <div className="w-7 h-7 rounded-lg bg-surface-100 dark:bg-surface-700 flex items-center justify-center text-xs font-bold mb-1.5">{meta.icon}</div>
+                          <span className="text-xs font-medium">{meta.label}</span>
+                        </button>
+                      )
+                    })}
                   </div>
                 </div>
 

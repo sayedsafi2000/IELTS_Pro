@@ -30,23 +30,11 @@ const criteria = {
 
 const bandOptions = [4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8, 8.5, 9]
 
-function AudioPlayer({ src }) {
-  const [playing, setPlaying] = useState(false)
-  const [speed, setSpeed] = useState(1)
-  const audioRef = { current: null }
+function AudioPlayer({ src, label }) {
   return (
-    <div className="flex items-center gap-3 p-3 bg-surface-50 dark:bg-surface-800 rounded-xl">
-      <button onClick={() => setPlaying(!playing)} className="w-9 h-9 rounded-lg bg-brand-500 text-white flex items-center justify-center hover:bg-brand-600 transition-colors">
-        {playing ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
-      </button>
-      <div className="flex-1 h-1.5 bg-surface-200 dark:bg-surface-700 rounded-full">
-        <div className="h-full w-1/3 bg-brand-500 rounded-full" />
-      </div>
-      <div className="flex gap-1">
-        {[0.75, 1, 1.25, 1.5].map(s => (
-          <button key={s} onClick={() => setSpeed(s)} className={clsx('text-xs px-2 py-1 rounded-lg transition-colors', speed === s ? 'bg-brand-500 text-white' : 'bg-surface-200 dark:bg-surface-700 text-surface-600 dark:text-surface-400 hover:bg-surface-300')}>{s}x</button>
-        ))}
-      </div>
+    <div className="p-3 bg-surface-50 dark:bg-surface-800 rounded-xl space-y-2">
+      {label && <p className="text-xs text-surface-500">{label}</p>}
+      <audio src={src} controls preload="metadata" className="w-full" />
     </div>
   )
 }
@@ -129,11 +117,38 @@ export default function AdminEvaluate() {
             </div>
           ) : (
             <div className="space-y-4">
-              {current.audioUrl && <AudioPlayer src={current.audioUrl} />}
-              <div className="p-4 rounded-xl bg-surface-50 dark:bg-surface-900 border border-surface-200 dark:border-surface-700">
-                <p className="text-xs text-surface-400 mb-2">Speaking Part</p>
-                <p className="text-sm text-surface-700 dark:text-surface-300">{current.moduleSession?.module?.questions?.[0]?.questionText || 'Question not found'}</p>
-              </div>
+              {current.moduleSession?.liveSpeakingSession && (
+                <div className="p-4 rounded-xl bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-200 dark:border-emerald-800">
+                  <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400 mb-1">Live session</p>
+                  <p className="text-sm text-surface-700 dark:text-surface-300">
+                    {current.moduleSession.liveSpeakingSession.examiner?.name || 'No examiner'} ·
+                    {' '}{new Date(current.moduleSession.liveSpeakingSession.scheduledAt).toLocaleString()}
+                  </p>
+                  {current.moduleSession.liveSpeakingSession.recordingUrl && (
+                    <AudioPlayer src={current.moduleSession.liveSpeakingSession.recordingUrl} label="Live recording" />
+                  )}
+                </div>
+              )}
+
+              {current.responses?.length > 0 ? (
+                current.responses.map(r => (
+                  <div key={r.id} className="p-4 rounded-xl bg-surface-50 dark:bg-surface-900 border border-surface-200 dark:border-surface-700">
+                    <p className="text-xs section-label mb-1">{r.question?.type?.replace(/_/g, ' ')}</p>
+                    <p className="text-sm text-surface-700 dark:text-surface-300 mb-2">{r.question?.questionText}</p>
+                    <AudioPlayer src={r.audioUrl} />
+                  </div>
+                ))
+              ) : current.audioUrl ? (
+                <div className="p-4 rounded-xl bg-surface-50 dark:bg-surface-900 border border-surface-200 dark:border-surface-700 space-y-2">
+                  <p className="text-xs text-surface-400">Speaking Audio (legacy single recording)</p>
+                  <AudioPlayer src={current.audioUrl} />
+                  <p className="text-sm text-surface-700 dark:text-surface-300 mt-2">{current.moduleSession?.module?.questions?.[0]?.questionText || ''}</p>
+                </div>
+              ) : (
+                <div className="p-4 rounded-xl bg-surface-50 dark:bg-surface-900 text-sm text-surface-400">
+                  No recording attached yet.
+                </div>
+              )}
             </div>
           )}
         </div>

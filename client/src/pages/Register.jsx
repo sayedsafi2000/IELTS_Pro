@@ -10,7 +10,7 @@ export default function Register() {
   const navigate = useNavigate()
 
   if (user) {
-    navigate(user.role === 'ADMIN' ? '/admin' : '/dashboard')
+    navigate(user.role === 'ADMIN' ? '/admin' : user.role === 'EXAMINER' ? '/examiner' : '/dashboard')
     return null
   }
 
@@ -20,7 +20,7 @@ export default function Register() {
     try {
       const user = await register(form.name, form.email, form.password, form.phone)
       toast.success(`Welcome, ${user.name}!`)
-      navigate(user.role === 'ADMIN' ? '/admin' : '/dashboard')
+      navigate(user.role === 'ADMIN' ? '/admin' : user.role === 'EXAMINER' ? '/examiner' : '/dashboard')
     } catch (err) {
       toast.error(err.response?.data?.error || 'Registration failed')
     } finally { setLoading(false) }

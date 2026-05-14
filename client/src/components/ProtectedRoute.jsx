@@ -6,6 +6,6 @@ export default function ProtectedRoute({ children, role }) {
   const { user, loading } = useAuth()
   if (loading) return <PageLoader />
   if (!user) return <Navigate to="/login" />
-  if (role && user.role !== role) return <Navigate to={user.role === 'ADMIN' ? '/admin' : '/dashboard'} />
+  if (role && user.role !== role) return <Navigate to={user.role === 'ADMIN' ? '/admin' : user.role === 'EXAMINER' ? '/examiner' : '/dashboard'} />
   return children
 }

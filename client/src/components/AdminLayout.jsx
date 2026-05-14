@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext'
 import { clsx } from 'clsx'
 import ThemeToggle from './ui/ThemeToggle'
 import Avatar from './ui/Avatar'
-import { LayoutDashboard, FileText, Users, UserPlus, ClipboardCheck, ScrollText, LogOut, Bell } from 'lucide-react'
+import { LayoutDashboard, FileText, Users, UserPlus, ClipboardCheck, ScrollText, LogOut, Bell, Video } from 'lucide-react'
 
 const mainNav = [
   { path: '/admin', label: 'Dashboard', icon: LayoutDashboard },
@@ -15,6 +15,7 @@ const mainNav = [
 
 const evalNav = [
   { path: '/admin/evaluate', label: 'Evaluate', icon: ClipboardCheck },
+  { path: '/admin/live-speaking', label: 'Live Speaking', icon: Video },
 ]
 
 export default function AdminLayout() {

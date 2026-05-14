@@ -4,7 +4,7 @@ const router = express.Router();
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { body, validationResult } = require('express-validator');
-const { authenticate } = require('../middleware/auth');
+const { authenticate, requireRole } = require('../middleware/auth');
 const { registerValidation, loginValidation } = require('../utils/validators');
 const { sendLoginCredentials } = require('../services/emailService');
 
@@ -100,6 +100,27 @@ router.post('/logout', async (req, res) => {
     res.json({ message: 'Logged out' });
   } catch (err) {
     res.status(500).json({ error: 'Logout failed' });
+  }
+});
+
+router.post('/admin/create-user', authenticate, requireRole('ADMIN'), async (req, res) => {
+  try {
+    const { name, email, password, role, phone } = req.body;
+    if (!name || !email || !password) return res.status(400).json({ error: 'name, email, password required' });
+    if (!['STUDENT', 'ADMIN', 'EXAMINER'].includes(role)) return res.status(400).json({ error: 'Invalid role' });
+
+    const existing = await req.prisma.user.findUnique({ where: { email } });
+    if (existing) return res.status(400).json({ error: 'Email already registered' });
+
+    const passwordHash = await bcrypt.hash(password, 12);
+    const user = await req.prisma.user.create({
+      data: { name, email, passwordHash, phone, role }
+    });
+    try { await sendLoginCredentials(email, password); } catch (_) {}
+    res.json({ id: user.id, name: user.name, email: user.email, role: user.role });
+  } catch (err) {
+    console.error('Admin create user error:', err);
+    res.status(500).json({ error: 'Failed to create user' });
   }
 });
 

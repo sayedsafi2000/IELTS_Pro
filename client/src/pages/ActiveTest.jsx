@@ -7,6 +7,8 @@ import StarterKit from '@tiptap/starter-kit'
 import api from '../services/api'
 import toast from 'react-hot-toast'
 import { Bookmark, Play, Pause, ChevronLeft, ChevronRight, Flag, Send, Mic, Square, Upload } from 'lucide-react'
+import SpeakingRecorderPerQuestion from '../components/test/SpeakingRecorderPerQuestion'
+import LiveSpeakingPanel from '../components/test/LiveSpeakingPanel'
 
 function TimerDisplay({ seconds }) {
   const mins = Math.floor(seconds / 60)
@@ -553,18 +555,16 @@ export default function ActiveTest() {
               </div>
             ))}
 
-            {moduleDef?.type === 'SPEAKING' && (
-              <div className="space-y-4">
-                {questions.map(q => (
-                  <div key={q.id} className="card p-6">
-                    <span className={clsx('badge-info mb-3')}>{q.type.replace(/_/g, ' ')}</span>
-                    <p className="text-lg text-surface-900 dark:text-surface-100 mb-4">{q.questionText}</p>
-                    {q.instructions && <p className="text-sm text-surface-500 mb-4">{q.instructions}</p>}
-                    <SpeakingRecorder moduleSessionId={currentModule?.id} existingUrl={currentModule?.speakingSubmission?.audioUrl} readOnly={currentModule?.status === 'SUBMITTED'} />
-                  </div>
-                ))}
-              </div>
-            )}
+            {moduleDef?.type === 'SPEAKING' && moduleDef?.speakingMode === 'LIVE' ? (
+              <LiveSpeakingPanel moduleSession={currentModule} />
+            ) : moduleDef?.type === 'SPEAKING' ? (
+              <SpeakingRecorderPerQuestion
+                moduleSession={currentModule}
+                module={moduleDef}
+                readOnly={currentModule?.status === 'SUBMITTED'}
+                onChange={() => queryClient.invalidateQueries({ queryKey: ['session', sessionId] })}
+              />
+            ) : null}
           </div>
 
           {/* Auto-save indicator */}

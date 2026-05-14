@@ -31,19 +31,51 @@ router.post('/', authenticate, requireRole('ADMIN'), [
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
-    const count = await req.prisma.module.count({ where: { testId: req.body.testId } });
-    const module = await req.prisma.module.create({ data: { ...req.body, orderIndex: count } });
+    const { testId, type, title, instructions, durationMins, speakingMode } = req.body;
+    const data = { testId, type, title, instructions, durationMins, orderIndex: await req.prisma.module.count({ where: { testId } }) };
+    if (type === 'SPEAKING' && speakingMode) {
+      if (!['RECORDED', 'LIVE'].includes(speakingMode)) {
+        return res.status(400).json({ error: 'speakingMode must be RECORDED or LIVE' });
+      }
+      data.speakingMode = speakingMode;
+    }
+    const module = await req.prisma.module.create({ data });
     res.json(module);
   } catch (err) {
+    if (err.code === 'P2002') {
+      return res.status(409).json({
+        error: `A ${req.body.type} module already exists for this test. Each module type may appear only once.`,
+        code: 'MODULE_TYPE_DUPLICATE'
+      });
+    }
+    console.error('[modules POST]', err);
     res.status(500).json({ error: 'Failed to create module' });
   }
 });
 
 router.patch('/:id', authenticate, requireRole('ADMIN'), async (req, res) => {
   try {
-    const module = await req.prisma.module.update({ where: { id: req.params.id }, data: req.body });
+    const { title, instructions, durationMins, orderIndex, speakingMode } = req.body;
+    const data = {};
+    if (title !== undefined) data.title = title;
+    if (instructions !== undefined) data.instructions = instructions;
+    if (durationMins !== undefined) data.durationMins = durationMins;
+    if (orderIndex !== undefined) data.orderIndex = orderIndex;
+    if (speakingMode !== undefined) {
+      const existing = await req.prisma.module.findUnique({ where: { id: req.params.id } });
+      if (!existing) return res.status(404).json({ error: 'Module not found' });
+      if (existing.type !== 'SPEAKING') {
+        return res.status(400).json({ error: 'speakingMode can only be set on SPEAKING modules' });
+      }
+      if (!['RECORDED', 'LIVE'].includes(speakingMode)) {
+        return res.status(400).json({ error: 'speakingMode must be RECORDED or LIVE' });
+      }
+      data.speakingMode = speakingMode;
+    }
+    const module = await req.prisma.module.update({ where: { id: req.params.id }, data });
     res.json(module);
   } catch (err) {
+    console.error('[modules PATCH]', err);
     res.status(500).json({ error: 'Failed to update module' });
   }
 });
