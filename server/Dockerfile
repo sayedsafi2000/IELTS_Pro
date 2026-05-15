@@ -22,5 +22,5 @@ RUN mkdir -p /app/uploads
 ENV NODE_ENV=production
 EXPOSE 5000
 
-# On boot: apply pending migrations, then start the API
-CMD ["sh", "-c", "npx prisma migrate deploy --schema=src/prisma/schema.prisma && node src/server.js"]
+# On boot: apply pending migrations, ensure admin user, then start the API
+CMD ["sh", "-c", "npx prisma migrate deploy --schema=src/prisma/schema.prisma && node prisma/seed-admin.js && node src/server.js"]

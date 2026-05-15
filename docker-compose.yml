@@ -43,6 +43,14 @@ services:
       ACCESS_TOKEN_EXPIRY: ${ACCESS_TOKEN_EXPIRY:-15m}
       REFRESH_TOKEN_EXPIRY: ${REFRESH_TOKEN_EXPIRY:-7d}
 
+      # Admin bootstrap (used by prisma/seed-admin.js on startup)
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@ieltsplatform.com}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-Admin@123}
+      ADMIN_NAME: ${ADMIN_NAME:-Admin}
+      # Set to "true" temporarily and redeploy if you need to reset the admin password,
+      # then unset (or set to "false") and redeploy again.
+      ADMIN_RESET_PASSWORD: ${ADMIN_RESET_PASSWORD:-false}
+
       # Public client URL (used for CORS + email links). In Coolify this is
       # the FQDN you assigned to the `client` service, e.g. https://app.example.com
       CLIENT_URL: ${CLIENT_URL}
