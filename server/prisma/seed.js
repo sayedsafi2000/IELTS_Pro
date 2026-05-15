@@ -1,4 +1,5 @@
 // ── FILE: server/prisma/seed.js ──
+require('dotenv').config();
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcrypt');
 
@@ -12,7 +13,7 @@ async function main() {
 
   const admin = await prisma.user.upsert({
     where: { email: 'admin@ieltsplatform.com' },
-    update: {},
+    update: { passwordHash: adminHash, role: 'ADMIN', isActive: true },
     create: { name: 'Admin User', email: 'admin@ieltsplatform.com', passwordHash: adminHash, role: 'ADMIN' }
   });
 

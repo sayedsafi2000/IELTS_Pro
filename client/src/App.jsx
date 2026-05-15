@@ -6,6 +6,7 @@ import AdminLayout from './components/AdminLayout'
 import Home from './pages/Home'
 import Login from './pages/Login'
 import Register from './pages/Register'
+import SampleTests from './pages/SampleTests'
 import Dashboard from './pages/Dashboard'
 import Tests from './pages/Tests'
 import TestDetail from './pages/TestDetail'
@@ -52,6 +53,7 @@ export default function App() {
           <Route index element={<Home />} />
           <Route path="login" element={<Login />} />
           <Route path="register" element={<Register />} />
+          <Route path="sample-tests" element={<SampleTests />} />
         </Route>
         <Route path="/dashboard" element={<RequireAuth role="STUDENT"><StudentLayout /></RequireAuth>}>
           <Route index element={<Dashboard />} />

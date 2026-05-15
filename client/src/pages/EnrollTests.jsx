@@ -104,7 +104,7 @@ function PaymentModal({ test, onClose }) {
 }
 
 function TestCard({ test, onEnroll }) {
-  const isPaid = test.isPaid && test.price > 0
+  const isPaid = test.price > 0
 
   return (
     <Card className="p-6 hover:shadow-card transition-all" elevated>
@@ -212,12 +212,12 @@ export default function EnrollTests() {
       )}
 
       {/* Payment Modal */}
-      {selectedTest && selectedTest.isPaid && selectedTest.price > 0 && (
+      {selectedTest && selectedTest.price > 0 && (
         <PaymentModal test={selectedTest} onClose={() => setSelectedTest(null)} />
       )}
 
       {/* Free Test Confirmation Modal */}
-      {selectedTest && !selectedTest.isPaid && (
+      {selectedTest && !(selectedTest.price > 0) && (
         <FreeEnrollModal test={selectedTest} onClose={() => setSelectedTest(null)} />
       )}
     </div>

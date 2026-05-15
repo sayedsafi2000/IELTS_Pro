@@ -46,7 +46,7 @@ export default function TestDetail() {
   const isApproved = enrollment?.status === 'APPROVED'
   const isPending = enrollment?.status === 'PENDING'
   const isRejected = enrollment?.status === 'REJECTED'
-  const isPaid = test?.isPaid && test?.price > 0
+  const isPaid = test?.price > 0
 
   const existingSession = sessions?.find(s => s.testId === id && s.status === 'IN_PROGRESS')
   const completedSession = sessions?.find(s => s.testId === id && s.status === 'SUBMITTED')

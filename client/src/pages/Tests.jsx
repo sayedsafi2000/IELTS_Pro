@@ -56,7 +56,7 @@ export default function Tests() {
                 <p className="text-sm text-surface-500 mb-4 line-clamp-2">{test.description || 'No description'}</p>
                 <div className="flex items-center gap-3 text-xs text-surface-400 mb-5">
                   <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{test.duration} min</span>
-                  {test.isPaid && test.price > 0 ? (
+                  {test.price > 0 ? (
                     <span>•  ৳{test.price}</span>
                   ) : (
                     <span>•  Free</span>

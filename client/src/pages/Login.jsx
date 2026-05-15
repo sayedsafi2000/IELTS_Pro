@@ -21,6 +21,15 @@ export default function Login() {
     try {
       const user = await login(email, password)
       toast.success(`Welcome back, ${user.name}!`)
+
+      // If the visitor came from a sample-test page, send them straight there
+      const redirect = sessionStorage.getItem('postLoginRedirect')
+      if (redirect && user.role === 'STUDENT') {
+        sessionStorage.removeItem('postLoginRedirect')
+        navigate(redirect)
+        return
+      }
+
       navigate(user.role === 'ADMIN' ? '/admin' : user.role === 'EXAMINER' ? '/examiner' : '/dashboard')
     } catch (err) {
       toast.error(err.response?.data?.error || 'Login failed')

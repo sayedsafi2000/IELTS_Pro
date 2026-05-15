@@ -29,7 +29,7 @@ export default function AdminTestEdit() {
   const [selectedModuleIdx, setSelectedModuleIdx] = useState(0)
   const [showDrawer, setShowDrawer] = useState(false)
   const [questionForm, setQuestionForm] = useState({ type: 'MULTIPLE_CHOICE', questionText: '', instructions: '', options: '', correctAnswer: '', marks: 1, section: 1 })
-  const [newTestForm, setNewTestForm] = useState({ title: '', description: '', price: 0, isPaid: false, bkashNumber: '', bankName: '', bankAccount: '' })
+  const [newTestForm, setNewTestForm] = useState({ title: '', description: '', price: '', bkashNumber: '', bankName: '', bankAccount: '' })
   const [deleteConfirm, setDeleteConfirm] = useState(null)
 
   const { data: test, isLoading } = useQuery({
@@ -88,14 +88,16 @@ export default function AdminTestEdit() {
 
   const handleSaveTest = () => {
     if (isNew) {
+      const priceValue = Math.max(0, parseFloat(newTestForm.price) || 0)
       createTest.mutate({
         title: newTestForm.title.trim() || 'Untitled Test',
         description: newTestForm.description.trim() || '',
         type: 'FULL',
         duration: 165,
         isPublished: false,
-        price: parseFloat(newTestForm.price) || 0,
-        isPaid: newTestForm.isPaid,
+        price: priceValue,
+        // Backwards-compat with the existing schema field; "paid" is now driven by price > 0
+        isPaid: priceValue > 0,
         bkashNumber: newTestForm.bkashNumber.trim() || null,
         bankName: newTestForm.bankName.trim() || null,
         bankAccount: newTestForm.bankAccount.trim() || null
@@ -178,38 +180,65 @@ export default function AdminTestEdit() {
               />
             </div>
 
-            {/* Payment Settings */}
+            {/* Pricing */}
             <div className="border-t border-surface-200 dark:border-surface-700 pt-4 mt-4">
-              <h3 className="text-sm font-semibold text-surface-900 dark:text-white mb-3">Payment Settings</h3>
+              <h3 className="text-sm font-semibold text-surface-900 dark:text-white mb-1">Pricing</h3>
+              <p className="text-xs text-surface-400 mb-4">
+                Leave the price empty (or set to 0) for a free test. Set an amount to charge students via bKash, Nagad, or bank transfer.
+              </p>
               <div className="space-y-4">
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input type="checkbox" checked={newTestForm.isPaid} onChange={e => setNewTestForm(f => ({ ...f, isPaid: e.target.checked }))}
-                    className="w-5 h-5 rounded border-surface-300 text-brand-500 focus:ring-brand-500" />
-                  <span className="text-sm font-medium text-surface-700 dark:text-surface-300">This is a paid test</span>
-                </label>
+                <div>
+                  <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">
+                    Price (৳) <span className="text-surface-400 font-normal">— blank for free</span>
+                  </label>
+                  <input
+                    type="number"
+                    value={newTestForm.price}
+                    onChange={e => setNewTestForm(f => ({ ...f, price: e.target.value }))}
+                    className="input"
+                    placeholder="e.g. 500 (or leave blank for free)"
+                    min="0"
+                    step="0.01"
+                  />
+                  <p className="text-xs mt-1.5">
+                    {parseFloat(newTestForm.price) > 0
+                      ? <span className="text-amber-600 dark:text-amber-400">This test will be paid (৳{parseFloat(newTestForm.price)}).</span>
+                      : <span className="text-green-600 dark:text-green-400">This test will be free for students.</span>}
+                  </p>
+                </div>
 
-                {newTestForm.isPaid && (
+                {parseFloat(newTestForm.price) > 0 && (
                   <>
                     <div>
-                      <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">Price (৳)</label>
-                      <input type="number" value={newTestForm.price} onChange={e => setNewTestForm(f => ({ ...f, price: e.target.value }))}
-                        className="input" placeholder="0" min="0" step="0.01" />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">bKash Number (for payments)</label>
-                      <input type="text" value={newTestForm.bkashNumber} onChange={e => setNewTestForm(f => ({ ...f, bkashNumber: e.target.value }))}
-                        className="input" placeholder="01XXXXXXXXX" />
+                      <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">bKash / Nagad Number</label>
+                      <input
+                        type="text"
+                        value={newTestForm.bkashNumber}
+                        onChange={e => setNewTestForm(f => ({ ...f, bkashNumber: e.target.value }))}
+                        className="input"
+                        placeholder="01XXXXXXXXX"
+                      />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">Bank Name</label>
-                        <input type="text" value={newTestForm.bankName} onChange={e => setNewTestForm(f => ({ ...f, bankName: e.target.value }))}
-                          className="input" placeholder="e.g., Dhaka Bank" />
+                        <input
+                          type="text"
+                          value={newTestForm.bankName}
+                          onChange={e => setNewTestForm(f => ({ ...f, bankName: e.target.value }))}
+                          className="input"
+                          placeholder="e.g., Dhaka Bank"
+                        />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-surface-300 mb-1.5">Bank Account</label>
-                        <input type="text" value={newTestForm.bankAccount} onChange={e => setNewTestForm(f => ({ ...f, bankAccount: e.target.value }))}
-                          className="input" placeholder="Account number" />
+                        <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">Bank Account</label>
+                        <input
+                          type="text"
+                          value={newTestForm.bankAccount}
+                          onChange={e => setNewTestForm(f => ({ ...f, bankAccount: e.target.value }))}
+                          className="input"
+                          placeholder="Account number"
+                        />
                       </div>
                     </div>
                   </>

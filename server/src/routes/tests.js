@@ -38,6 +38,39 @@ router.get('/', authenticate, async (req, res) => {
   }
 });
 
+// Public: list of published tests (no auth required) for marketing / sample-tests page
+router.get('/public', async (req, res) => {
+  try {
+    const tests = await req.prisma.test.findMany({
+      where: { isPublished: true },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        type: true,
+        duration: true,
+        price: true,
+        createdAt: true,
+        _count: { select: { modules: true, enrollments: true } }
+      }
+    });
+    res.json(tests.map(t => ({
+      id: t.id,
+      title: t.title,
+      description: t.description,
+      type: t.type,
+      duration: t.duration,
+      price: t.price || 0,
+      modulesCount: t._count.modules,
+      enrolledCount: t._count.enrollments
+    })));
+  } catch (err) {
+    console.error('[tests/public]', err);
+    res.status(500).json({ error: 'Failed to fetch tests' });
+  }
+});
+
 router.get('/:id', authenticate, async (req, res) => {
   try {
     const test = await req.prisma.test.findUnique({
@@ -66,11 +99,13 @@ router.post('/', authenticate, requireRole('ADMIN'), [
       duration: Math.max(1, parseInt(String(req.body.duration ?? 165), 10) || 165),
       isPublished: !!req.body.isPublished,
       price: Math.max(0, parseFloat(String(req.body.price ?? 0)) || 0),
-      isPaid: !!req.body.isPaid,
+      isPaid: false,
       bkashNumber: req.body.bkashNumber?.trim() || null,
       bankAccount: req.body.bankAccount?.trim() || null,
       bankName: req.body.bankName?.trim() || null
     };
+    // Source of truth = price. Keep legacy flag in sync.
+    data.isPaid = data.price > 0;
     const test = await req.prisma.test.create({ data, include: testInclude });
     res.json(test);
   } catch (err) {
@@ -102,6 +137,8 @@ router.patch('/:id', authenticate, requireRole('ADMIN'), async (req, res) => {
     }
     if (data.price !== undefined) {
       data.price = Math.max(0, parseFloat(String(req.body.price)) || 0);
+      // Keep legacy isPaid flag in sync with price for any code paths that still read it
+      data.isPaid = data.price > 0;
     }
 
     const test = await req.prisma.test.update({

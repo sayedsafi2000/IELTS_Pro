@@ -17,8 +17,9 @@ router.post('/', authenticate, async (req, res) => {
     });
     if (existing) return res.status(400).json({ error: 'Already enrolled in this test' });
 
+    // Auto-derive paid status from price (price > 0 = paid).
     // If test is paid, require trxId
-    if (test.isPaid && test.price > 0) {
+    if (test.price > 0) {
       if (!trxId) return res.status(400).json({ error: 'Transaction ID is required for paid tests' });
 
       const enrollment = await req.prisma.enrollment.create({
