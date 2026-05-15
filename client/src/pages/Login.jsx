@@ -27,6 +27,16 @@ export default function Login() {
     } finally { setLoading(false) }
   }
 
+  const fillCredentials = (mail, pass) => {
+    setEmail(mail)
+    setPassword(pass)
+  }
+
+  const testAccounts = [
+    { role: 'Admin',   email: 'admin@ieltsplatform.com', password: 'Admin@123' },
+    { role: 'Student', email: 'student1@test.com',       password: 'Student@123' }
+  ]
+
   return (
     <div className="min-h-[calc(100vh-200px)] flex items-center justify-center py-12 px-4">
       <div className="bg-white dark:bg-surface-800 rounded-2xl shadow-xl p-8 w-full max-w-md">
@@ -44,6 +54,28 @@ export default function Login() {
             {loading ? 'Logging in...' : 'Login'}
           </button>
         </form>
+
+        <div className="mt-6 rounded-xl border border-dashed border-surface-300 dark:border-surface-600 bg-surface-50 dark:bg-surface-900/40 p-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-surface-500 mb-3">Test credentials</p>
+          <div className="space-y-2">
+            {testAccounts.map(acc => (
+              <button
+                type="button"
+                key={acc.email}
+                onClick={() => fillCredentials(acc.email, acc.password)}
+                className="w-full text-left rounded-lg bg-white dark:bg-surface-800 hover:bg-brand-50 dark:hover:bg-surface-700 border border-surface-200 dark:border-surface-700 px-3 py-2 text-sm transition"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-brand-600 dark:text-brand-400">{acc.role}</span>
+                  <span className="text-[10px] text-surface-400">tap to fill</span>
+                </div>
+                <div className="font-mono text-xs text-surface-700 dark:text-surface-300 truncate">{acc.email}</div>
+                <div className="font-mono text-xs text-surface-500">{acc.password}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+
         <p className="text-center mt-6 text-surface-500">Don't have an account? <Link to="/register" className="text-brand-600 dark:text-brand-400 hover:underline font-medium">Register</Link></p>
       </div>
     </div>
