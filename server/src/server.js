@@ -34,6 +34,11 @@ const logger = winston.createLogger({
 const prisma = new PrismaClient();
 const app = express();
 
+// In production we sit behind nginx + Coolify's reverse proxy. Without this,
+// express-rate-limit keys every request by the proxy's IP, so one user's
+// failed login locks out everyone behind the same proxy.
+app.set('trust proxy', Number(process.env.TRUST_PROXY_HOPS ?? 1));
+
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors({
   origin: process.env.CLIENT_URL || 'http://localhost:5173',
@@ -46,22 +51,50 @@ app.use(cookieParser());
 const staticDir = path.join(__dirname, '..', 'uploads');
 app.use('/uploads', express.static(staticDir));
 
+// Helper: per-user (when logged in) or per-IP rate-limit key, so one user
+// can't burn the whole IP's budget for everyone else on the same network.
+const keyByUserOrIp = (req, _res) => {
+  const auth = req.headers.authorization || '';
+  if (auth.startsWith('Bearer ')) {
+    // Cheap fingerprint: don't decode the JWT here, just hash the token tail.
+    return 'u:' + auth.slice(-24);
+  }
+  return 'ip:' + req.ip;
+};
+
+// General limiter — generous so legitimate use (auto-saves, polling) never trips.
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 200,
-  message: { error: 'Too many requests, please try again later.' }
+  max: Number(process.env.RATE_LIMIT_GENERAL ?? 1000),
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: keyByUserOrIp,
+  message: { error: 'Too many requests, please slow down and try again shortly.' }
 });
 
+// Login limiter — keyed by IP + email so one user typing the wrong password
+// doesn't block everyone behind the same NAT/proxy.
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 10,
-  message: { error: 'Too many login attempts, please try again later.' }
+  max: Number(process.env.RATE_LIMIT_AUTH ?? 30),
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => {
+    const email = (req.body?.email || '').toLowerCase().trim();
+    return 'login:' + req.ip + ':' + email;
+  },
+  // Successful logins shouldn't count against the limit
+  skipSuccessfulRequests: true,
+  message: { error: 'Too many login attempts. Please wait a few minutes and try again.' }
 });
 
 const registerLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
-  max: 5,
-  message: { error: 'Too many registration attempts, please try again later.' }
+  max: Number(process.env.RATE_LIMIT_REGISTER ?? 20),
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => 'register:' + req.ip,
+  message: { error: 'Too many registration attempts from this network. Please try again later.' }
 });
 
 app.use('/api', generalLimiter);
