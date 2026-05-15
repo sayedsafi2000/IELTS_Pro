@@ -1,0 +1,98 @@
+# Coolify-ready compose. Pick "Docker Compose" as the build pack in Coolify
+# and point it at this repo. Coolify will clone, build, and run all services.
+#
+# In Coolify → Environment Variables, set the values referenced below.
+# At minimum: POSTGRES_PASSWORD, JWT_ACCESS_SECRET, JWT_REFRESH_SECRET,
+# INTEGRATION_ENC_KEY, and your SMTP / Cloudinary / OAuth creds.
+# Coolify will auto-assign a public domain to the `client` service
+# (it's the only one with SERVICE_FQDN_*). The server stays on the
+# internal network and is reached via nginx on the same origin.
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-ielts_db}
+      POSTGRES_USER: ${POSTGRES_USER:-ielts_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ielts_user} -d ${POSTGRES_DB:-ielts_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  server:
+    build:
+      context: ./server
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-ielts_user}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-ielts_db}
+      PORT: 5000
+      NODE_ENV: production
+
+      # Auth
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      ACCESS_TOKEN_EXPIRY: ${ACCESS_TOKEN_EXPIRY:-15m}
+      REFRESH_TOKEN_EXPIRY: ${REFRESH_TOKEN_EXPIRY:-7d}
+
+      # Public client URL (used for CORS + email links). In Coolify this is
+      # the FQDN you assigned to the `client` service, e.g. https://app.example.com
+      CLIENT_URL: ${CLIENT_URL}
+
+      # SMTP
+      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-noreply@ieltsplatform.com}
+      SMTP_PASS: ${SMTP_PASS}
+      FROM_EMAIL: ${FROM_EMAIL:-noreply@ieltsplatform.com}
+
+      # Cloudinary
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET}
+
+      # Integrations
+      INTEGRATION_ENC_KEY: ${INTEGRATION_ENC_KEY}
+      GOOGLE_OAUTH_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${GOOGLE_OAUTH_CLIENT_SECRET}
+      GOOGLE_OAUTH_REDIRECT: ${GOOGLE_OAUTH_REDIRECT}
+      ZOOM_OAUTH_CLIENT_ID: ${ZOOM_OAUTH_CLIENT_ID}
+      ZOOM_OAUTH_CLIENT_SECRET: ${ZOOM_OAUTH_CLIENT_SECRET}
+      ZOOM_OAUTH_REDIRECT: ${ZOOM_OAUTH_REDIRECT}
+    volumes:
+      - server_uploads:/app/uploads
+    expose:
+      - "5000"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:5000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  client:
+    build:
+      context: ./client
+      args:
+        # Same-origin: nginx in this container proxies /api -> server:5000
+        VITE_API_URL: /api
+    restart: unless-stopped
+    depends_on:
+      - server
+    environment:
+      # Coolify auto-fills this with the public FQDN it assigns to `client`.
+      # That's also what you should put into CLIENT_URL above.
+      SERVICE_FQDN_CLIENT_80: /
+    expose:
+      - "80"
+
+volumes:
+  postgres_data:
+  server_uploads:
