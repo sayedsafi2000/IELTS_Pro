@@ -7,14 +7,39 @@ import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
 import Modal from '../components/ui/Modal'
 import Avatar from '../components/ui/Avatar'
-import ConfirmModal from '../components/ui/ConfirmModal'
 import { clsx } from 'clsx'
-import { Check, X, Clock, FileText, Eye, Filter, Search } from 'lucide-react'
+import { Check, X, Clock, FileText, Filter, Search, Smartphone, Building2, CreditCard } from 'lucide-react'
 
-function EnrollmentRow({ enrollment, onApprove, onReject }) {
+const PAYMENT_METHOD_LABEL = {
+  BKASH: 'bKash',
+  NAGAD: 'Nagad',
+  BANK: 'Bank',
+  MANUAL: 'Manual'
+}
+const PAYMENT_METHOD_ICON = {
+  BKASH: Smartphone,
+  NAGAD: Smartphone,
+  BANK: Building2,
+  MANUAL: CreditCard
+}
+
+function PaymentMethodPill({ method }) {
+  if (!method) return <span className="text-xs text-surface-400">Free</span>
+  const Icon = PAYMENT_METHOD_ICON[method] || CreditCard
+  return (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-surface-100 dark:bg-surface-700 text-xs text-surface-600 dark:text-surface-300">
+      <Icon className="w-3 h-3" />
+      {PAYMENT_METHOD_LABEL[method] || method}
+    </span>
+  )
+}
+
+function EnrollmentRow({ enrollment, onApprove, onReject, isApproving, isRejecting }) {
   const isPending = enrollment.status === 'PENDING'
   const isApproved = enrollment.status === 'APPROVED'
   const isRejected = enrollment.status === 'REJECTED'
+  const test = enrollment.test
+  const isPaid = (test?.price || 0) > 0
 
   return (
     <tr className="border-b border-surface-100 dark:border-surface-700 hover:bg-surface-50 dark:hover:bg-surface-800/50 transition-colors">
@@ -28,15 +53,20 @@ function EnrollmentRow({ enrollment, onApprove, onReject }) {
         </div>
       </td>
       <td className="py-4 px-4">
-        <p className="text-sm font-medium text-surface-700 dark:text-surface-200">{enrollment.test?.title}</p>
-        <p className="text-xs text-surface-400">{enrollment.test?.modules?.length || 0} modules</p>
+        <p className="text-sm font-medium text-surface-700 dark:text-surface-200">{test?.title}</p>
+        <p className="text-xs text-surface-400">
+          {isPaid ? `৳${test.price}` : 'Free'} • {test?.modules?.length || 0} modules
+        </p>
       </td>
       <td className="py-4 px-4">
-        {enrollment.trxId ? (
-          <code className="text-xs bg-surface-100 dark:bg-surface-700 px-2 py-1 rounded font-mono">{enrollment.trxId}</code>
-        ) : (
-          <span className="text-xs text-surface-400">Free enrollment</span>
-        )}
+        <div className="space-y-1">
+          <PaymentMethodPill method={enrollment.paymentMethod} />
+          {enrollment.trxId && (
+            <code className="block text-xs bg-surface-100 dark:bg-surface-700 px-2 py-1 rounded font-mono text-surface-700 dark:text-surface-200">
+              {enrollment.trxId}
+            </code>
+          )}
+        </div>
       </td>
       <td className="py-4 px-4">
         <span className="text-xs text-surface-400">
@@ -50,28 +80,82 @@ function EnrollmentRow({ enrollment, onApprove, onReject }) {
           {isRejected && <X className="w-3 h-3 mr-1" />}
           {enrollment.status}
         </Badge>
+        {isRejected && enrollment.rejectionReason && (
+          <p className="text-xs text-surface-400 mt-1 max-w-xs truncate" title={enrollment.rejectionReason}>
+            {enrollment.rejectionReason}
+          </p>
+        )}
       </td>
       <td className="py-4 px-4">
         {isPending && (
           <div className="flex items-center gap-2">
-            <Button size="sm" onClick={() => onApprove(enrollment)} className="btn-primary">
+            <Button size="sm" loading={isApproving} onClick={() => onApprove(enrollment)}>
               <Check className="w-3.5 h-3.5" /> Approve
             </Button>
             <Button size="sm" variant="danger" onClick={() => onReject(enrollment)}>
-              <X className="w-3.5 h-3.5" />
+              <X className="w-3.5 h-3.5" /> Reject
             </Button>
           </div>
         )}
-        {isApproved && (
-          <Button size="sm" variant="ghost" as="a" href={`/admin/enroll`}>
-            <Eye className="w-3.5 h-3.5" />
-          </Button>
-        )}
-        {isRejected && (
-          <span className="text-xs text-surface-400">Rejected</span>
-        )}
+        {(isApproved || isRejected) && <span className="text-xs text-surface-400">—</span>}
       </td>
     </tr>
+  )
+}
+
+function RejectModal({ enrollment, onClose, onConfirm, loading }) {
+  const [reason, setReason] = useState('')
+  const presets = [
+    'Transaction ID does not match our records',
+    'Payment amount is incorrect',
+    'Duplicate enrollment',
+    'Could not verify payment'
+  ]
+  if (!enrollment) return null
+  return (
+    <Modal open={true} onClose={onClose} title="Reject Enrollment">
+      <div className="space-y-4">
+        <p className="text-sm text-surface-500">
+          Reject <strong>{enrollment.user?.name}</strong>'s enrollment for{' '}
+          <strong>"{enrollment.test?.title}"</strong>?
+        </p>
+        <div>
+          <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">
+            Reason <span className="text-surface-400 font-normal">(shown to the student)</span>
+          </label>
+          <textarea
+            className="input"
+            rows={3}
+            value={reason}
+            onChange={e => setReason(e.target.value)}
+            placeholder="Why is this enrollment rejected?"
+          />
+          <div className="flex flex-wrap gap-2 mt-2">
+            {presets.map(p => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => setReason(p)}
+                className="text-xs px-2 py-1 rounded-full bg-surface-100 dark:bg-surface-700 text-surface-600 dark:text-surface-300 hover:bg-surface-200 dark:hover:bg-surface-600 transition"
+              >
+                {p}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="flex gap-3">
+          <Button variant="secondary" onClick={onClose} className="flex-1 justify-center">Cancel</Button>
+          <Button
+            variant="danger"
+            onClick={() => onConfirm(reason.trim())}
+            loading={loading}
+            className="flex-1 justify-center"
+          >
+            Reject
+          </Button>
+        </div>
+      </div>
+    </Modal>
   )
 }
 
@@ -79,38 +163,48 @@ export default function AdminEnrollments() {
   const queryClient = useQueryClient()
   const [statusFilter, setStatusFilter] = useState('all')
   const [searchQuery, setSearchQuery] = useState('')
-  const [rejectModal, setRejectModal] = useState(null)
+  const [rejectTarget, setRejectTarget] = useState(null)
 
   const { data: enrollments, isLoading } = useQuery({
     queryKey: ['admin-enrollments', statusFilter],
     queryFn: () => api.get(`/enrollments/admin/all?status=${statusFilter}`).then(r => r.data)
   })
 
+  const invalidateAll = () => {
+    queryClient.invalidateQueries({ queryKey: ['admin-enrollments'] })
+    queryClient.invalidateQueries({ queryKey: ['available-tests'] })
+    queryClient.invalidateQueries({ queryKey: ['my-enrollments'] })
+  }
+
   const approveMutation = useMutation({
     mutationFn: (id) => api.patch(`/enrollments/${id}/approve`),
     onSuccess: () => {
-      toast.success('Enrollment approved! Student can now take the test.')
-      queryClient.invalidateQueries(['admin-enrollments'])
-      queryClient.invalidateQueries(['available-tests'])
+      toast.success('Enrollment approved')
+      invalidateAll()
     },
-    onError: () => toast.error('Failed to approve enrollment')
+    onError: (err) => toast.error(err.response?.data?.error || 'Failed to approve enrollment')
   })
 
   const rejectMutation = useMutation({
     mutationFn: ({ id, reason }) => api.patch(`/enrollments/${id}/reject`, { reason }),
     onSuccess: () => {
       toast.success('Enrollment rejected')
-      queryClient.invalidateQueries(['admin-enrollments'])
-      setRejectModal(null)
+      invalidateAll()
+      setRejectTarget(null)
     },
-    onError: () => toast.error('Failed to reject enrollment')
+    onError: (err) => toast.error(err.response?.data?.error || 'Failed to reject enrollment')
   })
 
-  const filteredEnrollments = enrollments?.filter(e => {
+  const filteredEnrollments = (enrollments || []).filter(e => {
     if (!searchQuery) return true
     const q = searchQuery.toLowerCase()
-    return e.user?.name?.toLowerCase().includes(q) || e.user?.email?.toLowerCase().includes(q) || e.test?.title?.toLowerCase().includes(q) || e.trxId?.toLowerCase().includes(q)
-  }) || []
+    return (
+      e.user?.name?.toLowerCase().includes(q) ||
+      e.user?.email?.toLowerCase().includes(q) ||
+      e.test?.title?.toLowerCase().includes(q) ||
+      e.trxId?.toLowerCase().includes(q)
+    )
+  })
 
   const pendingCount = enrollments?.filter(e => e.status === 'PENDING').length || 0
   const approvedCount = enrollments?.filter(e => e.status === 'APPROVED').length || 0
@@ -118,7 +212,6 @@ export default function AdminEnrollments() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-surface-900 dark:text-white">Enrollment Requests</h1>
@@ -199,7 +292,7 @@ export default function AdminEnrollments() {
                 <tr className="border-b border-surface-100 dark:border-surface-700 bg-surface-50 dark:bg-surface-800">
                   <th className="text-left py-3 px-4 text-xs font-semibold text-surface-500 uppercase">Student</th>
                   <th className="text-left py-3 px-4 text-xs font-semibold text-surface-500 uppercase">Test</th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-surface-500 uppercase">TRX ID</th>
+                  <th className="text-left py-3 px-4 text-xs font-semibold text-surface-500 uppercase">Payment</th>
                   <th className="text-left py-3 px-4 text-xs font-semibold text-surface-500 uppercase">Date</th>
                   <th className="text-left py-3 px-4 text-xs font-semibold text-surface-500 uppercase">Status</th>
                   <th className="text-left py-3 px-4 text-xs font-semibold text-surface-500 uppercase">Action</th>
@@ -207,7 +300,14 @@ export default function AdminEnrollments() {
               </thead>
               <tbody>
                 {filteredEnrollments.map(e => (
-                  <EnrollmentRow key={e.id} enrollment={e} onApprove={(en) => approveMutation.mutate(en.id)} onReject={setRejectModal} />
+                  <EnrollmentRow
+                    key={e.id}
+                    enrollment={e}
+                    onApprove={(en) => approveMutation.mutate(en.id)}
+                    onReject={setRejectTarget}
+                    isApproving={approveMutation.isPending && approveMutation.variables === e.id}
+                    isRejecting={rejectMutation.isPending && rejectMutation.variables?.id === e.id}
+                  />
                 ))}
               </tbody>
             </table>
@@ -220,15 +320,11 @@ export default function AdminEnrollments() {
         )}
       </Card>
 
-      {/* Reject Modal */}
-      <ConfirmModal
-        open={!!rejectModal}
-        onClose={() => setRejectModal(null)}
-        title="Reject Enrollment"
-        description={`Are you sure you want to reject ${rejectModal?.user?.name}'s enrollment for "${rejectModal?.test?.title}"?`}
-        confirmText="Reject"
-        confirmVariant="danger"
-        onConfirm={() => rejectMutation.mutate({ id: rejectModal.id, reason: 'Payment verification failed' })}
+      <RejectModal
+        enrollment={rejectTarget}
+        onClose={() => setRejectTarget(null)}
+        loading={rejectMutation.isPending}
+        onConfirm={(reason) => rejectMutation.mutate({ id: rejectTarget.id, reason })}
       />
     </div>
   )

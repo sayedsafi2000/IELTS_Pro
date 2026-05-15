@@ -5,6 +5,7 @@ const { authenticate, requireRole } = require('../middleware/auth');
 const { uploadSpeaking } = require('../config/cloudinary');
 const { cloudinary } = require('../config/cloudinary');
 const { roundToHalf } = require('../services/scoreService');
+const { recomputeAndMaybeReleaseResult } = require('../services/resultService');
 
 // Per-question speaking response upload. New canonical endpoint.
 router.post('/response', authenticate, uploadSpeaking.single('audio'), async (req, res) => {
@@ -149,6 +150,8 @@ router.patch('/:id/evaluate', authenticate, requireRole('ADMIN', 'EXAMINER'), as
     } else {
       await req.prisma.result.create({ data: { sessionId, speakingBand: band } });
     }
+
+    await recomputeAndMaybeReleaseResult(req.prisma, sessionId);
 
     res.json(updated);
   } catch (err) {

@@ -3,8 +3,9 @@ const express = require('express');
 const router = express.Router();
 const { authenticate, requireRole } = require('../middleware/auth');
 const { calculateOverallBand, roundToHalf } = require('../services/scoreService');
+const { recomputeAndMaybeReleaseResult } = require('../services/resultService');
 
-router.get('/pending', authenticate, requireRole('ADMIN'), async (req, res) => {
+router.get('/pending', authenticate, requireRole('ADMIN', 'EXAMINER'), async (req, res) => {
   try {
     const submissions = await req.prisma.writingSubmission.findMany({
       where: { bandScore: null },
@@ -43,7 +44,7 @@ router.get('/:id', authenticate, async (req, res) => {
   }
 });
 
-router.patch('/:id/evaluate', authenticate, requireRole('ADMIN'), async (req, res) => {
+router.patch('/:id/evaluate', authenticate, requireRole('ADMIN', 'EXAMINER'), async (req, res) => {
   try {
     const { taskAchievement, coherenceCohesion, lexicalResource, grammaticalRange, feedback } = req.body;
     const submission = await req.prisma.writingSubmission.findUnique({ where: { id: req.params.id } });
@@ -59,20 +60,23 @@ router.patch('/:id/evaluate', authenticate, requireRole('ADMIN'), async (req, re
       where: { moduleSessionId: submission.moduleSessionId, bandScore: { not: null } }
     });
 
+    const moduleSession = await req.prisma.moduleSession.findUnique({ where: { id: submission.moduleSessionId } });
+
     if (allSubmissions.length >= 2) {
       const task1 = allSubmissions.find(s => s.taskNumber === 1);
       const task2 = allSubmissions.find(s => s.taskNumber === 2);
       if (task1 && task2) {
         const writingBand = roundToHalf(task1.bandScore * 0.33 + task2.bandScore * 0.67);
-        const session = await req.prisma.moduleSession.findUnique({ where: { id: submission.moduleSessionId } });
-        const result = await req.prisma.result.findUnique({ where: { sessionId: session.sessionId } });
+        const result = await req.prisma.result.findUnique({ where: { sessionId: moduleSession.sessionId } });
         if (result) {
           await req.prisma.result.update({ where: { id: result.id }, data: { writingBand } });
         } else {
-          await req.prisma.result.create({ data: { sessionId: session.sessionId, writingBand } });
+          await req.prisma.result.create({ data: { sessionId: moduleSession.sessionId, writingBand } });
         }
       }
     }
+
+    await recomputeAndMaybeReleaseResult(req.prisma, moduleSession.sessionId);
 
     res.json(updated);
   } catch (err) {

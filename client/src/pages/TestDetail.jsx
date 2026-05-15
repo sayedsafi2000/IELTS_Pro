@@ -10,7 +10,7 @@ import { clsx } from 'clsx'
 import {
   Headphones, BookOpen, PenLine, Mic, Clock, HelpCircle,
   AlertTriangle, Play, RotateCcw, Smartphone, Building2,
-  CheckCircle2, XCircle, CreditCard, Lock
+  CheckCircle2, XCircle, CreditCard, Lock, RefreshCcw
 } from 'lucide-react'
 
 const moduleIcons = { LISTENING: Headphones, READING: BookOpen, WRITING: PenLine, SPEAKING: Mic }
@@ -26,8 +26,9 @@ export default function TestDetail() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [mode, setMode] = useState('EXAM')
-  const [paymentMethod, setPaymentMethod] = useState('bkash')
+  const [paymentMethod, setPaymentMethod] = useState('BKASH')
   const [trxId, setTrxId] = useState('')
+  const [showResubmit, setShowResubmit] = useState(false)
 
   const { data: test, isLoading } = useQuery({
     queryKey: ['test', id],
@@ -63,7 +64,9 @@ export default function TestDetail() {
       toast.success(res.data?.message || 'Enrolled successfully')
       queryClient.invalidateQueries({ queryKey: ['my-enrollments'] })
       queryClient.invalidateQueries({ queryKey: ['available-tests'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-enrollments'] })
       setTrxId('')
+      setShowResubmit(false)
     },
     onError: (err) => toast.error(err.response?.data?.error || 'Failed to enroll')
   })
@@ -72,13 +75,17 @@ export default function TestDetail() {
   const handleEnrollPaid = (e) => {
     e.preventDefault()
     if (!trxId.trim()) return toast.error('Please enter your Transaction ID')
-    enrollMutation.mutate({ testId: id, trxId: trxId.trim() })
+    enrollMutation.mutate({ testId: id, trxId: trxId.trim(), paymentMethod })
   }
 
   if (isLoading) return (
     <div className="space-y-4">{[1,2,3].map(i => <div key={i} className="skeleton h-24 rounded-2xl" />)}</div>
   )
   if (!test) return <div className="text-center py-20 text-surface-500">Test not found</div>
+
+  const showEnrollForm =
+    !enrollment ||
+    (isRejected && showResubmit)
 
   return (
     <div className="max-w-3xl space-y-6">
@@ -127,141 +134,157 @@ export default function TestDetail() {
         </div>
       </Card>
 
-      {/* ── Enrollment gate ── */}
-      {!isApproved && (
-        <>
-          {isPending && (
-            <Card className="p-6 bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800" elevated>
-              <div className="flex items-start gap-3">
-                <Clock className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
-                <div>
-                  <h3 className="font-semibold text-amber-800 dark:text-amber-300">Waiting for approval</h3>
-                  <p className="text-sm text-amber-700 dark:text-amber-200 mt-1">
-                    Your payment has been submitted. Once an admin verifies your transaction, you'll be able to start the test.
-                  </p>
-                </div>
-              </div>
-            </Card>
-          )}
-
-          {isRejected && (
-            <Card className="p-6 bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800" elevated>
-              <div className="flex items-start gap-3">
-                <XCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
-                <div>
-                  <h3 className="font-semibold text-red-800 dark:text-red-300">Enrollment rejected</h3>
-                  <p className="text-sm text-red-700 dark:text-red-200 mt-1">
-                    Please contact support if you believe this is an error.
-                  </p>
-                </div>
-              </div>
-            </Card>
-          )}
-
-          {!enrollment && !isPaid && (
-            <Card className="p-6" elevated>
-              <div className="flex items-center gap-3 mb-4 p-4 bg-green-50 dark:bg-green-900/20 rounded-xl">
-                <CheckCircle2 className="w-8 h-8 text-green-500 shrink-0" />
-                <div>
-                  <p className="font-semibold text-green-700 dark:text-green-400">This test is free</p>
-                  <p className="text-sm text-green-600 dark:text-green-300">Enroll once to start practicing.</p>
-                </div>
-              </div>
-              <Button
-                onClick={handleEnrollFree}
-                loading={enrollMutation.isPending}
-                className="btn-primary w-full justify-center py-3 text-base"
-              >
-                <CheckCircle2 className="w-4 h-4" />
-                Enroll Free
-              </Button>
-            </Card>
-          )}
-
-          {!enrollment && isPaid && (
-            <Card className="p-6" elevated>
-              <h2 className="text-lg font-semibold text-surface-900 dark:text-white mb-1 flex items-center gap-2">
-                <CreditCard className="w-5 h-5 text-brand-500" />
-                Enroll with Payment
-              </h2>
-              <p className="text-sm text-surface-500 mb-4">
-                Pay <strong>৳{test.price}</strong> via bKash, Nagad, or Bank, then submit the Transaction ID below for verification.
+      {/* ── Pending banner ── */}
+      {isPending && (
+        <Card className="p-6 bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800" elevated>
+          <div className="flex items-start gap-3">
+            <Clock className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+            <div>
+              <h3 className="font-semibold text-amber-800 dark:text-amber-300">Waiting for approval</h3>
+              <p className="text-sm text-amber-700 dark:text-amber-200 mt-1">
+                {isPaid
+                  ? `We received your payment (TRX: ${enrollment?.trxId}). Once an admin verifies your transaction you'll be able to start the test.`
+                  : 'Your enrollment is being processed.'}
               </p>
+            </div>
+          </div>
+        </Card>
+      )}
 
-              {/* Payment method selector */}
-              <div className="grid grid-cols-3 gap-3 mb-4">
-                {[
-                  { id: 'bkash', label: 'bKash', icon: Smartphone, color: 'bg-pink-500' },
-                  { id: 'nagad', label: 'Nagad', icon: Smartphone, color: 'bg-orange-500' },
-                  { id: 'bank',  label: 'Bank',  icon: Building2,  color: 'bg-blue-500'  }
-                ].map(pm => (
-                  <button
-                    type="button"
-                    key={pm.id}
-                    onClick={() => setPaymentMethod(pm.id)}
-                    className={clsx(
-                      'p-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2',
-                      paymentMethod === pm.id
-                        ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/20'
-                        : 'border-surface-200 dark:border-surface-700 hover:border-brand-300'
-                    )}
-                  >
-                    <div className={clsx('w-10 h-10 rounded-lg flex items-center justify-center text-white', pm.color)}>
-                      <pm.icon className="w-5 h-5" />
-                    </div>
-                    <span className="text-sm font-medium">{pm.label}</span>
-                  </button>
-                ))}
-              </div>
+      {/* ── Rejected banner ── */}
+      {isRejected && !showResubmit && (
+        <Card className="p-6 bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800" elevated>
+          <div className="flex items-start gap-3">
+            <XCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <h3 className="font-semibold text-red-800 dark:text-red-300">Enrollment rejected</h3>
+              {enrollment?.rejectionReason && (
+                <p className="text-sm text-red-700 dark:text-red-200 mt-1">
+                  Reason: {enrollment.rejectionReason}
+                </p>
+              )}
+              <Button
+                onClick={() => setShowResubmit(true)}
+                variant="secondary"
+                className="mt-3"
+              >
+                <RefreshCcw className="w-4 h-4" />
+                {isPaid ? 'Resubmit payment' : 'Try again'}
+              </Button>
+            </div>
+          </div>
+        </Card>
+      )}
 
-              {/* Payment instructions */}
-              <div className="bg-surface-50 dark:bg-surface-800 rounded-xl p-4 mb-4 text-sm">
-                {paymentMethod === 'bank' ? (
-                  <div className="space-y-1 text-surface-600 dark:text-surface-300">
-                    <p><strong>Bank:</strong> {test.bankName || 'Not configured'}</p>
-                    <p><strong>Account:</strong> {test.bankAccount || 'Not configured'}</p>
-                    <p>Send <strong>৳{test.price}</strong> and use the bank reference as TRX ID.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-1 text-surface-600 dark:text-surface-300">
-                    <p>Send <strong>৳{test.price}</strong> to <strong>{test.bkashNumber || 'Not configured'}</strong></p>
-                    <p>Use {paymentMethod === 'bkash' ? 'bKash' : 'Nagad'} Personal/Send Money, then copy the TRX from the SMS.</p>
-                  </div>
+      {/* ── Enroll form ── */}
+      {showEnrollForm && !isPaid && (
+        <Card className="p-6" elevated>
+          <div className="flex items-center gap-3 mb-4 p-4 bg-green-50 dark:bg-green-900/20 rounded-xl">
+            <CheckCircle2 className="w-8 h-8 text-green-500 shrink-0" />
+            <div>
+              <p className="font-semibold text-green-700 dark:text-green-400">This test is free</p>
+              <p className="text-sm text-green-600 dark:text-green-300">Enroll once to start practicing.</p>
+            </div>
+          </div>
+          <Button
+            onClick={handleEnrollFree}
+            loading={enrollMutation.isPending}
+            className="btn-primary w-full justify-center py-3 text-base"
+          >
+            <CheckCircle2 className="w-4 h-4" />
+            Enroll Free
+          </Button>
+        </Card>
+      )}
+
+      {showEnrollForm && isPaid && (
+        <Card className="p-6" elevated>
+          <h2 className="text-lg font-semibold text-surface-900 dark:text-white mb-1 flex items-center gap-2">
+            <CreditCard className="w-5 h-5 text-brand-500" />
+            {isRejected ? 'Resubmit Payment' : 'Enroll with Payment'}
+          </h2>
+          <p className="text-sm text-surface-500 mb-4">
+            Pay <strong>৳{test.price}</strong> via bKash, Nagad, or Bank, then submit the Transaction ID below for verification.
+          </p>
+
+          {/* Payment method selector */}
+          <div className="grid grid-cols-3 gap-3 mb-4">
+            {[
+              { id: 'BKASH', label: 'bKash', icon: Smartphone, color: 'bg-pink-500', show: !!test.bkashNumber },
+              { id: 'NAGAD', label: 'Nagad', icon: Smartphone, color: 'bg-orange-500', show: !!test.bkashNumber },
+              { id: 'BANK',  label: 'Bank',  icon: Building2,  color: 'bg-blue-500', show: !!test.bankAccount }
+            ].filter(pm => pm.show).map(pm => (
+              <button
+                type="button"
+                key={pm.id}
+                onClick={() => setPaymentMethod(pm.id)}
+                className={clsx(
+                  'p-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2',
+                  paymentMethod === pm.id
+                    ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/20'
+                    : 'border-surface-200 dark:border-surface-700 hover:border-brand-300'
                 )}
-              </div>
-
-              <form onSubmit={handleEnrollPaid} className="space-y-3">
-                <div>
-                  <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">
-                    Transaction ID (TRX)
-                  </label>
-                  <input
-                    type="text"
-                    value={trxId}
-                    onChange={e => setTrxId(e.target.value)}
-                    placeholder="e.g. AB12CD34EF"
-                    className="input"
-                    maxLength={30}
-                    required
-                  />
+              >
+                <div className={clsx('w-10 h-10 rounded-lg flex items-center justify-center text-white', pm.color)}>
+                  <pm.icon className="w-5 h-5" />
                 </div>
-                <Button
-                  type="submit"
-                  loading={enrollMutation.isPending}
-                  className="btn-primary w-full justify-center py-3 text-base"
-                >
-                  Submit Payment
+                <span className="text-sm font-medium">{pm.label}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Payment instructions */}
+          <div className="bg-surface-50 dark:bg-surface-800 rounded-xl p-4 mb-4 text-sm">
+            {paymentMethod === 'BANK' ? (
+              <div className="space-y-1 text-surface-600 dark:text-surface-300">
+                <p><strong>Bank:</strong> {test.bankName || 'Not configured'}</p>
+                <p><strong>Account:</strong> {test.bankAccount || 'Not configured'}</p>
+                <p>Send <strong>৳{test.price}</strong> and use the bank reference as TRX ID.</p>
+              </div>
+            ) : (
+              <div className="space-y-1 text-surface-600 dark:text-surface-300">
+                <p>Send <strong>৳{test.price}</strong> to <strong>{test.bkashNumber || 'Not configured'}</strong></p>
+                <p>Use {paymentMethod === 'BKASH' ? 'bKash' : 'Nagad'} Personal/Send Money, then copy the TRX from the SMS.</p>
+              </div>
+            )}
+          </div>
+
+          <form onSubmit={handleEnrollPaid} className="space-y-3">
+            <div>
+              <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">
+                Transaction ID (TRX)
+              </label>
+              <input
+                type="text"
+                value={trxId}
+                onChange={e => setTrxId(e.target.value)}
+                placeholder="e.g. AB12CD34EF"
+                className="input"
+                maxLength={30}
+                required
+              />
+            </div>
+            <div className="flex gap-3">
+              {isRejected && (
+                <Button type="button" variant="secondary" onClick={() => setShowResubmit(false)} className="flex-1 justify-center">
+                  Cancel
                 </Button>
-              </form>
-            </Card>
-          )}
-        </>
+              )}
+              <Button
+                type="submit"
+                loading={enrollMutation.isPending}
+                className="btn-primary flex-1 justify-center py-3 text-base"
+              >
+                {isRejected ? 'Resubmit Payment' : 'Submit Payment'}
+              </Button>
+            </div>
+          </form>
+        </Card>
       )}
 
       {/* ── Approved → start the test ── */}
       {isApproved && (
         <>
-          {/* Important Rules */}
           <Card className="p-6 bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800" elevated>
             <h3 className="font-semibold text-amber-800 dark:text-amber-400 mb-3 flex items-center gap-2">
               <AlertTriangle className="w-4 h-4" />
@@ -276,7 +299,6 @@ export default function TestDetail() {
             </ul>
           </Card>
 
-          {/* Mode Selection */}
           <Card className="p-6" elevated>
             <h2 className="text-sm font-semibold text-surface-700 dark:text-surface-300 mb-4">Test Mode</h2>
             <div className="grid sm:grid-cols-2 gap-4">
@@ -299,7 +321,6 @@ export default function TestDetail() {
             </div>
           </Card>
 
-          {/* Action button */}
           {completedSession ? (
             <div className="space-y-3">
               <Button onClick={() => navigate(`/results/${completedSession.id}`)} variant="secondary" className="w-full justify-center py-4 text-base">
@@ -324,7 +345,6 @@ export default function TestDetail() {
         </>
       )}
 
-      {/* Locked-state hint when not approved */}
       {!isApproved && !enrollment && (
         <p className="text-xs text-surface-400 flex items-center gap-1.5 justify-center">
           <Lock className="w-3 h-3" />

@@ -160,25 +160,37 @@ enum FileType {
 }
 
 model Enrollment {
-  id           String            @id @default(uuid())
-  userId       String
-  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  testId       String
-  test         Test              @relation(fields: [testId], references: [id], onDelete: Cascade)
-  status       EnrollmentStatus  @default(PENDING)
-  trxId        String?
-  paidAt       DateTime?
-  assignedAt   DateTime          @default(now())
-  dueDate      DateTime?
-  assignedBy   String?
-  approvedAt   DateTime?
-  approvedBy   String?
+  id              String            @id @default(uuid())
+  userId          String
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  testId          String
+  test            Test              @relation(fields: [testId], references: [id], onDelete: Cascade)
+  status          EnrollmentStatus  @default(PENDING)
+  trxId           String?
+  paymentMethod   PaymentMethod?
+  amountPaid      Float?
+  paidAt          DateTime?
+  assignedAt      DateTime          @default(now())
+  dueDate         DateTime?
+  assignedBy      String?
+  approvedAt      DateTime?
+  approvedBy      String?
+  rejectedAt      DateTime?
+  rejectedBy      String?
+  rejectionReason String?
 }
 
 enum EnrollmentStatus {
   PENDING
   APPROVED
   REJECTED
+}
+
+enum PaymentMethod {
+  BKASH
+  NAGAD
+  BANK
+  MANUAL
 }
 
 model TestSession {

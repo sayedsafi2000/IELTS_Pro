@@ -4,6 +4,7 @@ const router = express.Router();
 const { authenticate } = require('../middleware/auth');
 const { body, validationResult } = require('express-validator');
 const { bandFromRaw, calculateOverallBand, checkAnswer } = require('../services/scoreService');
+const { recomputeAndMaybeReleaseResult } = require('../services/resultService');
 
 router.post('/start', authenticate, [
   body('testId').isUUID(),
@@ -181,11 +182,7 @@ router.post('/:id/module/:moduleId/submit', authenticate, async (req, res) => {
 
     if (allSubmitted && session.mode === 'EXAM') {
       // Auto-calculate overall when all modules submitted in EXAM mode
-      const result = await req.prisma.result.findUnique({ where: { sessionId: session.id } });
-      if (result && result.listeningBand && result.readingBand && result.writingBand && result.speakingBand) {
-        const overall = ((result.listeningBand + result.readingBand + result.writingBand + result.speakingBand) / 4).toFixed(1);
-        await req.prisma.result.update({ where: { id: result.id }, data: { overallBand: parseFloat(overall) } });
-      }
+      await recomputeAndMaybeReleaseResult(req.prisma, session.id);
     }
 
     res.json({ message: isLiveSpeaking ? 'Module awaiting live session' : 'Module submitted', allModulesSubmitted: allSubmitted, anyAwaitingLive });
@@ -217,22 +214,7 @@ router.post('/:id/submit', authenticate, async (req, res) => {
 
     // Auto-release result for EXAM mode if writing and speaking are already evaluated
     if (session.mode === 'EXAM') {
-      const result = await req.prisma.result.findUnique({ where: { sessionId: session.id } });
-      if (result) {
-        const writingEvaluated = await req.prisma.writingSubmission.findFirst({ where: { moduleSession: { sessionId: session.id }, evaluatedAt: { not: null } } });
-        const speakingEvaluated = await req.prisma.speakingSubmission.findFirst({ where: { moduleSession: { sessionId: session.id }, evaluatedAt: { not: null } } });
-
-        // Calculate overall band if all components are evaluated
-        if (result.listeningBand && result.readingBand && result.writingBand && result.speakingBand) {
-          const overall = ((result.listeningBand + result.readingBand + result.writingBand + result.speakingBand) / 4).toFixed(1);
-          await req.prisma.result.update({ where: { id: result.id }, data: { overallBand: parseFloat(overall), isReleased: true, releasedAt: new Date() } });
-
-          // Send notification
-          await req.prisma.notification.create({
-            data: { userId: session.userId, title: 'Results Released', message: `Your results for "${session.test?.title || 'the test'}" are now available.` }
-          });
-        }
-      }
+      await recomputeAndMaybeReleaseResult(req.prisma, session.id);
     }
 
     res.json({ message: 'Test submitted' });
