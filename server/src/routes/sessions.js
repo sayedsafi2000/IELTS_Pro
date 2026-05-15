@@ -95,6 +95,36 @@ router.get('/:id', authenticate, async (req, res) => {
   }
 });
 
+router.post('/:id/module/:moduleId/start', authenticate, async (req, res) => {
+  try {
+    const session = await req.prisma.testSession.findUnique({ where: { id: req.params.id } });
+    if (!session) return res.status(404).json({ error: 'Session not found' });
+    if (session.userId !== req.user.id && req.user.role !== 'ADMIN') {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    if (session.status !== 'IN_PROGRESS') {
+      return res.status(400).json({ error: 'Session already submitted' });
+    }
+
+    const moduleSession = await req.prisma.moduleSession.findFirst({
+      where: { sessionId: req.params.id, moduleId: req.params.moduleId }
+    });
+    if (!moduleSession) return res.status(404).json({ error: 'Module session not found' });
+
+    if (moduleSession.status === 'NOT_STARTED' || !moduleSession.startedAt) {
+      const updated = await req.prisma.moduleSession.update({
+        where: { id: moduleSession.id },
+        data: { status: 'IN_PROGRESS', startedAt: new Date() }
+      });
+      return res.json(updated);
+    }
+    res.json(moduleSession);
+  } catch (err) {
+    console.error('[sessions module start]', err);
+    res.status(500).json({ error: 'Failed to start module' });
+  }
+});
+
 router.post('/:id/module/:moduleId/submit', authenticate, async (req, res) => {
   try {
     const session = await req.prisma.testSession.findUnique({ where: { id: req.params.id } });

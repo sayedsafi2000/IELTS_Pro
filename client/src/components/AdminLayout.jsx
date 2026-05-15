@@ -10,7 +10,8 @@ const mainNav = [
   { path: '/admin/sessions', label: 'Sessions', icon: ScrollText },
   { path: '/admin/tests', label: 'Tests', icon: FileText },
   { path: '/admin/students', label: 'Students', icon: Users },
-  { path: '/admin/enroll', label: 'Enrollments', icon: UserPlus },
+  { path: '/admin/enrollments', label: 'Approvals', icon: ClipboardCheck },
+  { path: '/admin/enroll', label: 'Assign Tests', icon: UserPlus },
 ]
 
 const evalNav = [
@@ -35,7 +36,8 @@ export default function AdminLayout() {
     if (section === 'tests' && parts[2]) return 'Edit test'
     if (section === 'tests') return 'Tests'
     if (section === 'students') return 'Students'
-    if (section === 'enroll') return 'Enrollments'
+    if (section === 'enroll') return 'Assign tests'
+    if (section === 'enrollments') return 'Enrollment approvals'
     if (section === 'evaluate') return 'Evaluate'
     return section.replace(/-/g, ' ')
   })()

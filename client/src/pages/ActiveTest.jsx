@@ -117,31 +117,44 @@ function QuestionRenderer({ question, answer, onChange, readOnly, showAnswer }) 
   switch (question.type) {
     case 'MULTIPLE_CHOICE': {
       const options = typeof question.options === 'string' ? JSON.parse(question.options) : question.options || []
+      const optionLetter = (i) => String.fromCharCode(65 + i)
       return (
         <div className="space-y-3">
           {options.map((opt, i) => {
-            const isSelected = value === opt[0]
-            const isCorrectOpt = showAnswer && correct === opt[0]
+            const letter = optionLetter(i)
+            const stored = (value || '').toString().trim()
+            const isSelected = stored === letter || stored.toUpperCase() === letter
+            const isCorrectOpt = showAnswer && (correct?.toString().trim().toUpperCase() === letter)
             return (
-              <label key={i} className={clsx(
-                'flex items-center gap-4 p-4 rounded-xl cursor-pointer transition-all min-h-[56px]',
-                isSelected && !showAnswer ? 'bg-brand-50 dark:bg-brand-900/20 border-2 border-brand-500 shadow-sm' : '',
-                showAnswer && isCorrectOpt ? 'bg-green-50 dark:bg-green-900/20 border-2 border-green-500' : '',
-                showAnswer && isSelected && !isCorrectOpt ? 'bg-red-50 dark:bg-red-900/20 border-2 border-red-500' : '',
-                !isSelected && !showAnswer ? 'border-2 border-surface-200 dark:border-surface-600 hover:border-brand-300 hover:bg-surface-50 dark:hover:bg-surface-800' : 'border-2 border-transparent'
-              )}>
+              <button
+                type="button"
+                key={i}
+                disabled={readOnly}
+                onClick={() => !readOnly && onChange(letter)}
+                className={clsx(
+                  'w-full text-left flex items-center gap-4 p-4 rounded-xl transition-all min-h-[56px] border-2',
+                  readOnly ? 'cursor-not-allowed' : 'cursor-pointer',
+                  isSelected && !showAnswer
+                    ? 'bg-brand-50 dark:bg-brand-900/20 border-brand-500 shadow-sm'
+                    : showAnswer && isCorrectOpt
+                      ? 'bg-green-50 dark:bg-green-900/20 border-green-500'
+                      : showAnswer && isSelected && !isCorrectOpt
+                        ? 'bg-red-50 dark:bg-red-900/20 border-red-500'
+                        : 'border-surface-200 dark:border-surface-600 hover:border-brand-300 hover:bg-surface-50 dark:hover:bg-surface-800'
+                )}
+              >
                 <span className={clsx(
                   'w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0 transition-all',
-                  isSelected && !showAnswer ? 'bg-brand-500 text-white' : '',
-                  showAnswer && isCorrectOpt ? 'bg-green-500 text-white' : '',
-                  showAnswer && isSelected && !isCorrectOpt ? 'bg-red-500 text-white' : '',
-                  !isSelected && !showAnswer ? 'bg-surface-100 dark:bg-surface-700 text-surface-500' : ''
+                  isSelected && !showAnswer ? 'bg-brand-500 text-white' :
+                  showAnswer && isCorrectOpt ? 'bg-green-500 text-white' :
+                  showAnswer && isSelected && !isCorrectOpt ? 'bg-red-500 text-white' :
+                  'bg-surface-100 dark:bg-surface-700 text-surface-500'
                 )}>
-                  {String.fromCharCode(65 + i)}
+                  {letter}
                 </span>
                 <span className="text-surface-700 dark:text-surface-300 flex-1">{opt}</span>
                 {showAnswer && isCorrectOpt && <span className="text-green-500 font-bold text-xl">✓</span>}
-              </label>
+              </button>
             )
           })}
           {renderResult()}
@@ -150,17 +163,30 @@ function QuestionRenderer({ question, answer, onChange, readOnly, showAnswer }) 
     }
     case 'TRUE_FALSE_NG':
       return (
-        <div className="space-y-3">
-          {['True', 'False', 'Not Given'].map(opt => (
-            <label key={opt} className={clsx(
-              'flex-1 p-4 rounded-xl cursor-pointer text-center font-medium transition-all min-h-[56px] flex items-center justify-center border-2',
-              value === opt ? 'bg-brand-50 dark:bg-brand-900/20 border-brand-500 text-brand-700' : 'border-surface-200 dark:border-surface-600 hover:border-brand-300 bg-surface-50 dark:bg-surface-800'
-            )}>
-              <input type="radio" checked={value === opt} onChange={() => onChange(opt)} disabled={readOnly} className="sr-only" />
-              <span className="font-semibold">{opt}</span>
-            </label>
-          ))}
-          {renderResult()}
+        <div className="grid grid-cols-3 gap-3">
+          {['True', 'False', 'Not Given'].map(opt => {
+            const isSelected = value === opt
+            const isCorrectOpt = showAnswer && correct === opt
+            return (
+              <button
+                type="button"
+                key={opt}
+                disabled={readOnly}
+                onClick={() => !readOnly && onChange(opt)}
+                className={clsx(
+                  'p-4 rounded-xl text-center font-medium transition-all min-h-[56px] flex items-center justify-center border-2',
+                  readOnly ? 'cursor-not-allowed' : 'cursor-pointer',
+                  isSelected && !showAnswer ? 'bg-brand-50 dark:bg-brand-900/20 border-brand-500 text-brand-700' :
+                  showAnswer && isCorrectOpt ? 'bg-green-50 dark:bg-green-900/20 border-green-500 text-green-700' :
+                  showAnswer && isSelected && !isCorrectOpt ? 'bg-red-50 dark:bg-red-900/20 border-red-500 text-red-700' :
+                  'border-surface-200 dark:border-surface-600 hover:border-brand-300 bg-surface-50 dark:bg-surface-800'
+                )}
+              >
+                <span className="font-semibold">{opt}</span>
+              </button>
+            )
+          })}
+          <div className="col-span-3">{renderResult()}</div>
         </div>
       )
     case 'FILL_BLANK':
@@ -347,8 +373,10 @@ export default function ActiveTest() {
   const isWriting = moduleDef?.type === 'WRITING'
 
   useEffect(() => {
-    if (currentModule && currentModule.status === 'NOT_STARTED') {
-      api.post(`/sessions/${sessionId}/module/${currentModule.moduleId}/submit`).catch(() => {})
+    if (currentModule && (currentModule.status === 'NOT_STARTED' || !currentModule.startedAt)) {
+      api.post(`/sessions/${sessionId}/module/${currentModule.moduleId}/start`)
+        .then(() => queryClient.invalidateQueries({ queryKey: ['session', sessionId] }))
+        .catch(() => {})
     }
     if (moduleDef) {
       const elapsed = currentModule?.startedAt ? Math.floor((Date.now() - new Date(currentModule.startedAt).getTime()) / 1000) : 0

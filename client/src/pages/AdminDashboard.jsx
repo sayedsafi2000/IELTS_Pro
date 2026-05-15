@@ -1,12 +1,14 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import api from '../services/api'
+import toast from 'react-hot-toast'
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import Card from '../components/ui/Card'
 import Badge from '../components/ui/Badge'
 import Avatar from '../components/ui/Avatar'
+import Button from '../components/ui/Button'
 import Skeleton, { SkeletonCard } from '../components/ui/Skeleton'
-import { Users, FileText, CheckCircle, Target, PenLine, Mic, ArrowRight, BarChart2 } from 'lucide-react'
+import { Users, FileText, CheckCircle, Target, PenLine, Mic, ArrowRight, BarChart2, Check, X, Clock, CreditCard } from 'lucide-react'
 
 function KPICard({ label, value, icon: Icon, color, trend }) {
   return (
@@ -24,12 +26,35 @@ function KPICard({ label, value, icon: Icon, color, trend }) {
 }
 
 export default function AdminDashboard() {
+  const queryClient = useQueryClient()
   const { data: stats, isLoading: statsLoading } = useQuery({ queryKey: ['admin-stats'], queryFn: () => api.get('/admin/stats').then(r => r.data) })
   const { data: results, isLoading: resultsLoading } = useQuery({ queryKey: ['admin-results'], queryFn: () => api.get('/results/admin/all?limit=30').then(r => r.data) })
   const { data: pending } = useQuery({ queryKey: ['pending-evaluations'], queryFn: async () => {
     const [w, s] = await Promise.all([api.get('/writing/pending').then(r => r.data), api.get('/speaking/pending').then(r => r.data)])
     return { writing: w, speaking: s }
   } })
+  const { data: pendingEnrollments = [], isLoading: enrLoading } = useQuery({
+    queryKey: ['admin-enrollments', 'PENDING'],
+    queryFn: () => api.get('/enrollments/admin/all?status=PENDING').then(r => r.data)
+  })
+
+  const invalidateEnrollments = () => {
+    queryClient.invalidateQueries({ queryKey: ['admin-enrollments'] })
+    queryClient.invalidateQueries({ queryKey: ['available-tests'] })
+    queryClient.invalidateQueries({ queryKey: ['my-enrollments'] })
+  }
+
+  const approveMutation = useMutation({
+    mutationFn: (id) => api.patch(`/enrollments/${id}/approve`),
+    onSuccess: () => { toast.success('Enrollment approved'); invalidateEnrollments() },
+    onError: (err) => toast.error(err.response?.data?.error || 'Failed to approve')
+  })
+
+  const rejectMutation = useMutation({
+    mutationFn: (id) => api.patch(`/enrollments/${id}/reject`, { reason: 'Payment could not be verified' }),
+    onSuccess: () => { toast.success('Enrollment rejected'); invalidateEnrollments() },
+    onError: (err) => toast.error(err.response?.data?.error || 'Failed to reject')
+  })
 
   const bandData = results?.results?.reduce((acc, r) => {
     const b = Math.round(r.overallBand || 0)
@@ -60,6 +85,115 @@ export default function AdminDashboard() {
         <KPICard label="Sessions Today" value={stats?.sessionsToday} icon={CheckCircle} color="#22c55e" trend="Today" />
         <KPICard label="Average Band" value={stats?.averageOverallBand?.toFixed(1) || '—'} icon={Target} color="#f59e0b" trend="Avg score" />
       </div>
+
+      {/* Pending Enrollment Approvals */}
+      <Card className="p-6" elevated>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center">
+              <Clock className="w-5 h-5 text-amber-500" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-surface-900 dark:text-white">Pending Enrollment Approvals</h3>
+              <p className="text-xs text-surface-400">
+                {pendingEnrollments.length} student{pendingEnrollments.length === 1 ? '' : 's'} waiting for approval
+              </p>
+            </div>
+          </div>
+          <Link to="/admin/enrollments" className="text-xs text-brand-500 hover:text-brand-600 flex items-center gap-1">
+            View all <ArrowRight className="w-3 h-3" />
+          </Link>
+        </div>
+
+        {enrLoading ? (
+          <Skeleton className="h-24 w-full rounded-xl" />
+        ) : pendingEnrollments.length === 0 ? (
+          <div className="py-6 text-center text-sm text-surface-400">
+            No pending enrollment requests
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-surface-100 dark:border-surface-700">
+                  <th className="text-left text-xs font-semibold text-surface-500 uppercase pb-3">Student</th>
+                  <th className="text-left text-xs font-semibold text-surface-500 uppercase pb-3 hidden md:table-cell">Test</th>
+                  <th className="text-left text-xs font-semibold text-surface-500 uppercase pb-3">Payment</th>
+                  <th className="text-left text-xs font-semibold text-surface-500 uppercase pb-3 hidden lg:table-cell">Submitted</th>
+                  <th className="text-right text-xs font-semibold text-surface-500 uppercase pb-3">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pendingEnrollments.slice(0, 5).map(en => {
+                  const isPaid = (en.test?.price || 0) > 0
+                  return (
+                    <tr key={en.id} className="border-b border-surface-50 dark:border-surface-800 last:border-0">
+                      <td className="py-3">
+                        <div className="flex items-center gap-2">
+                          <Avatar name={en.user?.name || ''} size="sm" />
+                          <div>
+                            <p className="text-sm font-medium text-surface-700 dark:text-surface-200">{en.user?.name}</p>
+                            <p className="text-xs text-surface-400">{en.user?.email}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-3 hidden md:table-cell">
+                        <p className="text-sm text-surface-600 dark:text-surface-300">{en.test?.title}</p>
+                        <p className="text-xs text-surface-400">{isPaid ? `৳${en.test.price}` : 'Free'}</p>
+                      </td>
+                      <td className="py-3">
+                        {en.trxId ? (
+                          <div className="space-y-1">
+                            <span className="inline-flex items-center gap-1 text-xs text-surface-500">
+                              <CreditCard className="w-3 h-3" />
+                              {en.paymentMethod || 'Manual'}
+                            </span>
+                            <code className="block text-xs bg-surface-100 dark:bg-surface-700 px-1.5 py-0.5 rounded font-mono text-surface-700 dark:text-surface-200 max-w-[140px] truncate">
+                              {en.trxId}
+                            </code>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-surface-400">Free enrollment</span>
+                        )}
+                      </td>
+                      <td className="py-3 hidden lg:table-cell">
+                        <span className="text-xs text-surface-400">
+                          {new Date(en.assignedAt).toLocaleDateString()}
+                        </span>
+                      </td>
+                      <td className="py-3">
+                        <div className="flex items-center justify-end gap-2">
+                          <Button
+                            size="sm"
+                            loading={approveMutation.isPending && approveMutation.variables === en.id}
+                            onClick={() => approveMutation.mutate(en.id)}
+                          >
+                            <Check className="w-3.5 h-3.5" /> Approve
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="danger"
+                            loading={rejectMutation.isPending && rejectMutation.variables === en.id}
+                            onClick={() => rejectMutation.mutate(en.id)}
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+            {pendingEnrollments.length > 5 && (
+              <p className="text-xs text-surface-400 text-center mt-3">
+                Showing 5 of {pendingEnrollments.length}.{' '}
+                <Link to="/admin/enrollments" className="text-brand-500 hover:underline">View all →</Link>
+              </p>
+            )}
+          </div>
+        )}
+      </Card>
 
       {/* Charts Row */}
       <div className="grid lg:grid-cols-5 gap-4">
