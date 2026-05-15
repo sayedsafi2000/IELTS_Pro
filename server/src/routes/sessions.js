@@ -24,6 +24,23 @@ router.post('/start', authenticate, [
     });
     if (!test) return res.status(404).json({ error: 'Test not found' });
 
+    // Students must have an APPROVED enrollment to start the test.
+    // Admins/examiners can start without enrollment (for previewing/testing).
+    if (req.user.role === 'STUDENT') {
+      const enrollment = await req.prisma.enrollment.findFirst({
+        where: { userId: req.user.id, testId: req.body.testId }
+      });
+      if (!enrollment) {
+        return res.status(403).json({ error: 'Please enroll in this test first', code: 'NOT_ENROLLED' });
+      }
+      if (enrollment.status !== 'APPROVED') {
+        const msg = enrollment.status === 'PENDING'
+          ? 'Your enrollment is awaiting admin approval'
+          : 'Your enrollment was rejected. Please contact support.';
+        return res.status(403).json({ error: msg, code: enrollment.status });
+      }
+    }
+
     const session = await req.prisma.testSession.create({
       data: {
         userId: req.user.id,
